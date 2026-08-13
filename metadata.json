@@ -1,6 +1,8 @@
 {
   "name": "COSTIN'",
   "description": "A professional food costing and quote accounting tool for caterers and food vendors.",
-  "requestFramePermissions": [],
+  "requestFramePermissions": [
+    "microphone"
+  ],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

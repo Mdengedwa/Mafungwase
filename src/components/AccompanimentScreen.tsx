@@ -33,6 +33,7 @@ import {
   calculateIngredientRow,
 } from '../utils/calculations';
 import { SpoonDensityModal } from './SpoonDensityModal';
+import { PreparingInstructionsSection } from './PreparingInstructionsSection';
 import platedMealPieChartImg from '../assets/images/plated_meal_pie_chart_1786617201280.jpg';
 
 interface AccompanimentScreenProps {
@@ -120,6 +121,24 @@ export const AccompanimentScreen: React.FC<AccompanimentScreenProps> = ({
     const recalculated = recalculateAccompaniment(updated);
     setAccompaniments((prev) =>
       prev.map((acc, idx) => (idx === activeAccIndex ? recalculated : acc))
+    );
+  };
+
+  const handleUpdateInstructions = (instructions: string) => {
+    setAccompaniments((prev) =>
+      prev.map((acc, idx) =>
+        idx === activeAccIndex ? { ...acc, preparingInstructions: instructions } : acc
+      )
+    );
+  };
+
+  const handleUpdateVoiceNote = (voiceUrl?: string, duration?: number) => {
+    setAccompaniments((prev) =>
+      prev.map((acc, idx) =>
+        idx === activeAccIndex
+          ? { ...acc, voiceNoteUrl: voiceUrl, voiceNoteDuration: duration }
+          : acc
+      )
     );
   };
 
@@ -411,6 +430,16 @@ export const AccompanimentScreen: React.FC<AccompanimentScreenProps> = ({
               })()}
             </div>
           </div>
+
+          {/* Preparing Instructions Section (Typed & Voice Record) */}
+          <PreparingInstructionsSection
+            activeAccompaniment={activeAcc}
+            accompaniments={accompaniments}
+            activeAccIndex={activeAccIndex}
+            onSelectAccompaniment={(idx) => setActiveAccIndex(idx)}
+            onUpdateInstructions={handleUpdateInstructions}
+            onUpdateVoiceNote={handleUpdateVoiceNote}
+          />
         </div>
 
         {/* Column 2: Accompaniment Recipe Costing Cards */}

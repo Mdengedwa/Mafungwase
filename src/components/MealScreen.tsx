@@ -13,6 +13,12 @@ import {
   Target,
   TrendingUp,
   TrendingDown,
+  BookmarkPlus,
+  Check,
+  AlertTriangle,
+  ShieldCheck,
+  X,
+  Sparkles,
 } from 'lucide-react';
 import { Accompaniment, FeeLine, Meal, OrderItem } from '../types';
 import {
@@ -20,6 +26,12 @@ import {
   formatPercent,
   recalculateMeal,
 } from '../utils/calculations';
+import {
+  DEFAULT_PRESET_SUGGESTIONS,
+  PresetSuggestion,
+} from '../data/defaultPresetSuggestions';
+
+const LOCAL_STORAGE_KEY = 'mafungwase_dish_presets_v2';
 
 interface MealScreenProps {
   currentMeal: Meal;
@@ -39,10 +51,85 @@ export const MealScreen: React.FC<MealScreenProps> = ({
   // Filter Order List items in Packaging / Disposables category
   const packagingOptions = orderList.filter((i) => i.category === 'Packaging');
 
+  // Saved state and Margin Alert state for Recipe Library
+  const [isSavedToLibrary, setIsSavedToLibrary] = useState(false);
+  const [isMarginAlertOpen, setIsMarginAlertOpen] = useState(false);
+
   // Recalculate helper
   const updateMeal = (updated: Meal) => {
     const recalculated = recalculateMeal(updated, accompaniments);
     setCurrentMeal(recalculated);
+  };
+
+  // Cost & Margin calculations
+  const costPercent = currentMeal.actualCostPercent || 0;
+  const actualPct = Math.round(costPercent * 1000) / 10;
+  const desiredPct = Math.round((currentMeal.desiredCostPercent || 0.4) * 1000) / 10;
+  const profitMarginPct = Math.max(0, Math.round((1 - costPercent) * 1000) / 10);
+  const desiredProfitMarginPct = Math.max(0, Math.round((1 - (currentMeal.desiredCostPercent || 0.4)) * 1000) / 10);
+  const isOnTarget = costPercent <= (currentMeal.desiredCostPercent || 0.4);
+  const variance = Math.round(((currentMeal.desiredCostPercent || 0.4) - costPercent) * 1000) / 10;
+
+  // 40% Food Cost Margin Rule: Actual Food Cost must be <= 40.0% (and recipe must have accompaniments & cost)
+  const isFinishedCostedRecipe = currentMeal.accompanimentIds.length > 0 && currentMeal.totalPlateCost > 0;
+  const achieves40PercentMargin = isFinishedCostedRecipe && costPercent > 0 && costPercent <= 0.4001;
+
+  // Selling price required to achieve exact 40% food cost margin
+  const targetPriceFor40Margin = currentMeal.totalPlateCost > 0 ? currentMeal.totalPlateCost / 0.40 : 0;
+
+  // Add current finished costed meal to the Recipe Library (LocalStorage)
+  const handleAddToRecipeLibrary = () => {
+    if (!isFinishedCostedRecipe) return;
+
+    // Strict validation: Only allow recipes that achieve a 40% food cost margin
+    if (!achieves40PercentMargin) {
+      setIsMarginAlertOpen(true);
+      return;
+    }
+
+    const selectedAccNames = accompaniments
+      .filter((a) => currentMeal.accompanimentIds.includes(a.id))
+      .map((a) => a.name);
+
+    const mealTitle = currentMeal.name.trim() || 'Costed Meal Recipe';
+
+    // Keep all 50 default presets, and preserve any custom recipes previously added
+    let customPresets: PresetSuggestion[] = [];
+    try {
+      const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const defaultIds = new Set(DEFAULT_PRESET_SUGGESTIONS.map((d) => d.id));
+          // Filter out existing preset with the same name to update it, but keep all other custom ones
+          customPresets = parsed.filter(
+            (p) => !defaultIds.has(p.id) && p.title.toLowerCase() !== mealTitle.toLowerCase()
+          );
+        }
+      }
+    } catch (e) {
+      console.error('Failed to load presets:', e);
+    }
+
+    const newPreset: PresetSuggestion = {
+      id: `preset-costed-${Date.now()}`,
+      title: mealTitle,
+      category: 'Costed Recipes',
+      accompaniments: selectedAccNames,
+      isCustom: true,
+    };
+
+    // New recipe is added, all 50 defaults are always kept intact
+    const updatedPresets = [newPreset, ...customPresets, ...DEFAULT_PRESET_SUGGESTIONS];
+
+    try {
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updatedPresets));
+      window.dispatchEvent(new Event('recipes_updated'));
+      setIsSavedToLibrary(true);
+      setTimeout(() => setIsSavedToLibrary(false), 3500);
+    } catch (e) {
+      console.error('Failed to save to recipe library:', e);
+    }
   };
 
   // Toggle accompaniment on/off plate
@@ -55,13 +142,16 @@ export const MealScreen: React.FC<MealScreenProps> = ({
     updateMeal({ ...currentMeal, accompanimentIds: updatedIds });
   };
 
-  // Dynamic Cost % & Profit Margin Gauge Calculations
-  const actualPct = Math.round((currentMeal.actualCostPercent || 0) * 1000) / 10;
-  const desiredPct = Math.round((currentMeal.desiredCostPercent || 0.4) * 1000) / 10;
-  const profitMarginPct = Math.max(0, Math.round((1 - (currentMeal.actualCostPercent || 0)) * 1000) / 10);
-  const desiredProfitMarginPct = Math.max(0, Math.round((1 - (currentMeal.desiredCostPercent || 0.4)) * 1000) / 10);
-  const isOnTarget = (currentMeal.actualCostPercent || 0) <= (currentMeal.desiredCostPercent || 0.4);
-  const variance = Math.round(((currentMeal.desiredCostPercent || 0.4) - (currentMeal.actualCostPercent || 0)) * 1000) / 10;
+  // One-click helper to auto-adjust price to meet the 40% margin
+  const handleAutoAdjustTo40Margin = () => {
+    const adjustedSellingPrice = Math.ceil(targetPriceFor40Margin);
+    updateMeal({
+      ...currentMeal,
+      desiredCostPercent: 0.40,
+      actualSellingPriceOverride: adjustedSellingPrice,
+    });
+    setIsMarginAlertOpen(false);
+  };
 
   // Add Packaging Fee row from Order List
   const handleAddPackagingFee = (orderItemId?: string) => {
@@ -592,7 +682,7 @@ export const MealScreen: React.FC<MealScreenProps> = ({
       </div>
 
       {/* Card 5: Action Controls */}
-      <div className="bg-white rounded-2xl p-4 sm:p-5 border-2 border-black shadow-2xs flex items-center justify-between">
+      <div className="bg-white rounded-2xl p-4 sm:p-5 border-2 border-black shadow-2xs flex flex-col sm:flex-row items-center justify-between gap-3">
         <div className="text-xs text-stone-500">
           {currentMeal.accompanimentIds.length > 0 ? (
             <span className="text-emerald-700 font-bold flex items-center gap-1.5">
@@ -603,16 +693,135 @@ export const MealScreen: React.FC<MealScreenProps> = ({
           )}
         </div>
 
-        <button
-          type="button"
-          onClick={onContinueToQuote}
-          disabled={currentMeal.accompanimentIds.length === 0}
-          className="inline-flex items-center gap-2.5 px-7 py-3.5 text-sm font-extrabold text-white bg-emerald-700 hover:bg-emerald-800 disabled:opacity-50 disabled:cursor-not-allowed rounded-2xl shadow-md transition-all transform active:scale-98"
-        >
-          <span>Proceed to Event Quotation</span>
-          <ArrowRight className="w-4 h-4" />
-        </button>
+        <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto justify-end">
+          <button
+            type="button"
+            onClick={handleAddToRecipeLibrary}
+            disabled={!isFinishedCostedRecipe}
+            className={`inline-flex items-center gap-2 px-5 py-3.5 text-sm font-extrabold rounded-2xl border-2 transition-all transform active:scale-98 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
+              isSavedToLibrary
+                ? 'bg-emerald-50 text-emerald-800 border-emerald-600 shadow-xs'
+                : achieves40PercentMargin
+                ? 'bg-emerald-50/70 hover:bg-emerald-100/80 text-emerald-900 border-emerald-400/80 shadow-2xs'
+                : 'bg-amber-50 hover:bg-amber-100 text-amber-900 border-amber-300 shadow-2xs'
+            }`}
+            title={
+              achieves40PercentMargin
+                ? 'Save finished costed recipe (achieves ≤40% food cost margin)'
+                : 'Food cost is currently above 40%. Click to review margin adjustment options.'
+            }
+          >
+            {isSavedToLibrary ? (
+              <>
+                <Check className="w-4 h-4 text-emerald-700" />
+                <span className="text-emerald-800">Added to Recipe Library!</span>
+              </>
+            ) : achieves40PercentMargin ? (
+              <>
+                <BookmarkPlus className="w-4 h-4 text-emerald-700" />
+                <span>Add To Recipe Library</span>
+                <span className="ml-1 px-1.5 py-0.5 text-[10px] bg-emerald-200/80 text-emerald-900 font-black rounded-md">
+                  {actualPct}% Cost
+                </span>
+              </>
+            ) : (
+              <>
+                <AlertTriangle className="w-4 h-4 text-amber-700" />
+                <span>Add To Recipe Library</span>
+                <span className="ml-1 px-1.5 py-0.5 text-[10px] bg-amber-200 text-amber-900 font-bold rounded-md">
+                  {actualPct}% (Target ≤40%)
+                </span>
+              </>
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={onContinueToQuote}
+            disabled={currentMeal.accompanimentIds.length === 0}
+            className="inline-flex items-center gap-2.5 px-7 py-3.5 text-sm font-extrabold text-white bg-emerald-700 hover:bg-emerald-800 disabled:opacity-50 disabled:cursor-not-allowed rounded-2xl shadow-md transition-all transform active:scale-98"
+          >
+            <span>Proceed to Event Quotation</span>
+            <ArrowRight className="w-4 h-4" />
+          </button>
+        </div>
       </div>
+
+      {/* 40% Food Cost Margin Requirement Alert Modal */}
+      {isMarginAlertOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl p-6 sm:p-7 max-w-md w-full border-2 border-black shadow-xl space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-stone-100">
+              <h3 className="text-base font-extrabold text-stone-900 flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5 text-amber-600" />
+                40% Food Cost Margin Required
+              </h3>
+              <button
+                type="button"
+                onClick={() => setIsMarginAlertOpen(false)}
+                className="p-1 text-stone-400 hover:text-stone-600 rounded-lg"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs text-stone-600">
+              <p className="font-medium">
+                To protect profitability and caterer standards, the <strong>Recipe Library</strong> only accepts costed recipes that achieve a <strong>40% food cost margin or lower</strong> (≥60% gross profit margin).
+              </p>
+
+              <div className="p-3.5 bg-amber-50/80 border border-amber-200 rounded-2xl space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-stone-700">Current Food Cost:</span>
+                  <span className="font-black text-rose-600 text-sm">{actualPct}%</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-stone-700">Target Food Cost:</span>
+                  <span className="font-extrabold text-emerald-800">≤ 40.0%</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-stone-700">Total Plate Cost:</span>
+                  <span className="font-bold text-stone-900">{formatCurrency(currentMeal.totalPlateCost)}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-stone-700">Current Selling Price:</span>
+                  <span className="font-bold text-stone-900">
+                    {formatCurrency(currentMeal.actualSellingPriceOverride || currentMeal.preliminarySellingPrice)}
+                  </span>
+                </div>
+              </div>
+
+              <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-950 space-y-1">
+                <div className="font-bold flex items-center gap-1.5 text-emerald-900">
+                  <Sparkles className="w-3.5 h-3.5 text-emerald-700" />
+                  Recommended Adjustment:
+                </div>
+                <p className="text-[11px] text-emerald-800">
+                  Raise the selling price to <strong>{formatCurrency(Math.ceil(targetPriceFor40Margin))}</strong> (or reduce component costs) to achieve a 40.0% food cost margin.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-stone-100">
+              <button
+                type="button"
+                onClick={() => setIsMarginAlertOpen(false)}
+                className="px-4 py-2 text-xs font-bold text-stone-600 hover:bg-stone-100 rounded-xl"
+              >
+                Close & Adjust Manually
+              </button>
+              <button
+                type="button"
+                onClick={handleAutoAdjustTo40Margin}
+                className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-extrabold text-white bg-emerald-800 hover:bg-emerald-900 rounded-xl shadow-xs transition-all"
+              >
+                <ShieldCheck className="w-3.5 h-3.5" />
+                Set to 40% Margin ({formatCurrency(Math.ceil(targetPriceFor40Margin))})
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -7,6 +7,7 @@ import { QuoteScreen } from './components/QuoteScreen';
 import { OrderListScreen } from './components/OrderListScreen';
 import { SpecialsScreen } from './components/SpecialsScreen';
 import { LogoUploadModal } from './components/LogoUploadModal';
+import { QuickCalculatorModal } from './components/QuickCalculatorModal';
 
 import { OrderItem, Accompaniment, Meal, Quote, StoreSpecial } from './types';
 import { INITIAL_ORDER_LIST } from './data/initialOrderList';
@@ -26,6 +27,14 @@ const DEFAULT_LOGO = '/src/assets/images/food_costing_logo_1786443360654.jpg';
 export default function App() {
   const [activeTab, setActiveTab] = useState<ActiveTab>('home');
   const [isLogoModalOpen, setIsLogoModalOpen] = useState(false);
+  const [isQuickCalcOpen, setIsQuickCalcOpen] = useState(false);
+
+  // Unlocked navigation tabs - orderList and specials are always accessible
+  const [unlockedTabs, setUnlockedTabs] = useState<ActiveTab[]>([
+    'home',
+    'orderList',
+    'specials',
+  ]);
 
   // Logo State (stored in localStorage if modified)
   const [logoUrl, setLogoUrl] = useState<string>(() => {
@@ -240,6 +249,14 @@ export default function App() {
         );
       }
 
+      const defaultPrepGuide: Record<string, string> = {
+        'Steamed Basmati Rice': '1. Rinse basmati rice thoroughly under cold water until clear.\n2. Bring 2L salted water to a rolling boil.\n3. Add rice, 2 cloves, and 1 cinnamon stick; simmer covered on low heat for 12 minutes.\n4. Fluff with a fork and rest for 5 minutes before portioning.',
+        'Butter Bean Curry': '1. Heat oil in a heavy-bottomed pot and sauté onions with curry leaves and mustard seeds until golden.\n2. Stir in curry powder, turmeric, ginger and garlic paste; cook for 1 minute.\n3. Add diced tomatoes, cooked butter beans, and simmer gently for 25 minutes until gravy thickens.\n4. Garnish with fresh chopped coriander.',
+        'Chicken Tikka Fillet': '1. Marinate chicken breast fillets in yoghurt, tikka spices, lemon juice, and crushed garlic.\n2. Sear on high heat for 4-5 minutes per side until charred and cooked through (internal temp 75°C).\n3. Rest for 5 minutes and slice across the grain.',
+        'Tomato & Onion Sambal': '1. Finely dice ripe salad tomatoes and red onion.\n2. Toss with chopped green chillies, coriander, pinch of sea salt, and lemon juice.\n3. Chill in refrigerator for 30 minutes before serving.',
+        'Mint Yoghurt Sauce': '1. Whisk plain yoghurt with finely chopped mint, roasted cumin, and lime.\n2. Season with fine salt and chill until plated.',
+      };
+
       const acc: Accompaniment = {
         id: `acc-${Date.now()}-${index}`,
         name,
@@ -254,6 +271,7 @@ export default function App() {
         desiredCostPercent: 0.40,
         preliminarySellingPrice: 0,
         actualCostPercent: 0,
+        preparingInstructions: defaultPrepGuide[name] || '',
       };
 
       return recalculateAccompaniment(acc);
@@ -324,6 +342,7 @@ export default function App() {
 
     // Proceed to Accompaniments Calculator if requested
     if (shouldNavigate) {
+      setUnlockedTabs((prev) => Array.from(new Set([...prev, 'accompaniments'])));
       setActiveTab('accompaniments');
     }
   };
@@ -341,8 +360,10 @@ export default function App() {
       <Header
         activeTab={activeTab}
         setActiveTab={setActiveTab}
+        unlockedTabs={unlockedTabs}
         logoUrl={logoUrl}
         onOpenLogoModal={() => setIsLogoModalOpen(true)}
+        onOpenQuickCalc={() => setIsQuickCalcOpen(true)}
         accompanimentsCount={accompaniments.length}
         mealsCount={currentMeal.accompanimentIds.length > 0 ? 1 : 0}
         quotesCount={quote.meals.length > 0 ? 1 : 0}
@@ -371,6 +392,7 @@ export default function App() {
               // Update meal plate cost calculation with current accompaniments
               const updatedMeal = recalculateMeal(currentMeal, accompaniments);
               setCurrentMeal(updatedMeal);
+              setUnlockedTabs((prev) => Array.from(new Set([...prev, 'meals'])));
               setActiveTab('meals');
             }}
           />
@@ -386,6 +408,7 @@ export default function App() {
               // Update quote calculation with current meal
               const updatedQuote = recalculateQuote(quote, [currentMeal]);
               setQuote(updatedQuote);
+              setUnlockedTabs((prev) => Array.from(new Set([...prev, 'quotes'])));
               setActiveTab('quotes');
             }}
           />
@@ -440,6 +463,13 @@ export default function App() {
         currentLogoUrl={logoUrl}
         onUpdateLogo={(url) => setLogoUrl(url)}
         onResetLogo={() => setLogoUrl(DEFAULT_LOGO)}
+      />
+
+      {/* Quick Portion / Purchasing Calculator Modal */}
+      <QuickCalculatorModal
+        isOpen={isQuickCalcOpen}
+        onClose={() => setIsQuickCalcOpen(false)}
+        onNavigateToDishSetup={() => setActiveTab('home')}
       />
     </div>
   );

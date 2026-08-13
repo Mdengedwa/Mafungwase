@@ -54,6 +54,9 @@ export interface Accompaniment {
   preliminarySellingPrice: number; // portionCost / desiredCostPercent
   actualSellingPriceOverride?: number; // optional manual override
   actualCostPercent: number; // portionCost / actualSellingPrice
+  preparingInstructions?: string; // typed or transcribed prep instructions
+  voiceNoteUrl?: string; // recorded audio memo data url
+  voiceNoteDuration?: number; // recorded audio memo duration in seconds
 }
 
 export interface FeeLine {
@@ -79,6 +82,9 @@ export interface Meal {
   preliminarySellingPrice: number;
   actualSellingPriceOverride?: number;
   actualCostPercent: number;
+  preparingInstructions?: string;
+  voiceNoteUrl?: string;
+  voiceNoteDuration?: number;
 }
 
 export interface QuoteMealItem {
@@ -133,5 +139,22 @@ export interface StoreSpecial {
   termsAndConditions?: string;
   contactNumber?: string;
   location?: string;
+}
+
+export type OrderProposalActionType = 'add' | 'edit' | 'delete';
+export type OrderProposalStatus = 'pending' | 'approved' | 'rejected';
+
+export interface OrderChangeProposal {
+  id: string;
+  type: OrderProposalActionType;
+  status: OrderProposalStatus;
+  submittedByEmail: string;
+  submittedByName?: string;
+  submittedAt: string;
+  itemData: OrderItem;
+  previousData?: OrderItem;
+  rejectionReason?: string;
+  verifiedAt?: string;
+  verifiedBy?: string;
 }
 

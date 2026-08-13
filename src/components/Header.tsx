@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Utensils,
   Calculator,
@@ -7,7 +7,10 @@ import {
   Database,
   Tag,
   Image as ImageIcon,
+  Scale,
   Sparkles,
+  Code,
+  Lock,
 } from 'lucide-react';
 
 export type ActiveTab = 'home' | 'accompaniments' | 'meals' | 'quotes' | 'orderList' | 'specials';
@@ -15,8 +18,11 @@ export type ActiveTab = 'home' | 'accompaniments' | 'meals' | 'quotes' | 'orderL
 interface HeaderProps {
   activeTab: ActiveTab;
   setActiveTab: (tab: ActiveTab) => void;
+  unlockedTabs: ActiveTab[];
   logoUrl: string;
   onOpenLogoModal: () => void;
+  onOpenQuickCalc: () => void;
+  isDevMode?: boolean;
   accompanimentsCount: number;
   mealsCount: number;
   quotesCount: number;
@@ -26,13 +32,33 @@ interface HeaderProps {
 export const Header: React.FC<HeaderProps> = ({
   activeTab,
   setActiveTab,
+  unlockedTabs,
   logoUrl,
   onOpenLogoModal,
+  onOpenQuickCalc,
+  isDevMode: propDevMode,
   accompanimentsCount,
   mealsCount,
   quotesCount,
   specialsCount = 0,
 }) => {
+  // Check if developer mode is enabled via URL search param (?dev=true) or prop or localStorage
+  const [isDev, setIsDev] = useState<boolean>(() => {
+    if (propDevMode !== undefined) return propDevMode;
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('dev') === 'true' || params.get('developer') === 'true') return true;
+      return localStorage.getItem('food_costing_dev_mode') === 'true';
+    }
+    return false;
+  });
+
+  useEffect(() => {
+    if (propDevMode !== undefined) {
+      setIsDev(propDevMode);
+    }
+  }, [propDevMode]);
+
   const navItems: { id: ActiveTab; label: string; icon: React.ElementType; badge?: number }[] = [
     { id: 'home', label: 'Dish Setup', icon: Utensils },
     { id: 'accompaniments', label: 'Accompaniments', icon: Calculator, badge: accompanimentsCount },
@@ -42,29 +68,53 @@ export const Header: React.FC<HeaderProps> = ({
     { id: 'specials', label: 'Specials', icon: Tag, badge: specialsCount },
   ];
 
+  // Order List, Specials, and Dish Setup are always directly accessible without click-throughs
+  const alwaysAccessibleTabs: ActiveTab[] = ['home', 'orderList', 'specials'];
+
+  const isTabAccessible = (tabId: ActiveTab) => {
+    if (alwaysAccessibleTabs.includes(tabId)) return true;
+    return unlockedTabs.includes(tabId);
+  };
+
   return (
     <header className="sticky top-0 z-40 bg-[#0B3B28] text-white shadow-md border-b border-emerald-900/80">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo & Brand */}
-          <div className="flex items-center gap-3">
-            <button
-              onClick={onOpenLogoModal}
-              title="Click to customize brand logo"
-              className="relative group flex items-center justify-center p-1 bg-[#06261A] rounded-2xl border border-emerald-800/80 hover:border-emerald-400 transition-all cursor-pointer overflow-hidden shadow-xs"
-            >
-              <img
-                src={logoUrl}
-                alt="Logo"
-                className="h-9 w-9 object-contain rounded-xl"
-                onError={(e) => {
-                  (e.target as HTMLElement).style.display = 'none';
-                }}
-              />
-              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity rounded-xl">
-                <ImageIcon className="w-4 h-4 text-emerald-300" />
+          <div className="flex items-center gap-2.5">
+            {isDev ? (
+              <button
+                onClick={onOpenLogoModal}
+                title="[Developer Mode] Click to customize brand logo"
+                className="relative group flex items-center justify-center p-1 bg-[#06261A] rounded-2xl border border-amber-500/80 hover:border-amber-300 transition-all cursor-pointer overflow-hidden shadow-xs ring-2 ring-amber-500/30"
+              >
+                <img
+                  src={logoUrl}
+                  alt="Logo"
+                  className="h-9 w-9 object-contain rounded-xl"
+                  onError={(e) => {
+                    (e.target as HTMLElement).style.display = 'none';
+                  }}
+                />
+                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity rounded-xl">
+                  <ImageIcon className="w-4 h-4 text-amber-300" />
+                </div>
+              </button>
+            ) : (
+              <div className="flex items-center justify-center p-1 bg-[#06261A] rounded-2xl border border-emerald-800/80 overflow-hidden shadow-xs">
+                <img
+                  src={logoUrl}
+                  alt="Logo"
+                  className="h-9 w-9 object-contain rounded-xl"
+                  onError={(e) => {
+                    (e.target as HTMLElement).style.display = 'none';
+                  }}
+                />
               </div>
-            </button>
+            )}
+            <span className="font-black text-lg tracking-wider text-white select-none">
+              SOUS
+            </span>
           </div>
 
           {/* Nav Items - Desktop / Tablet */}
@@ -72,11 +122,30 @@ export const Header: React.FC<HeaderProps> = ({
             {navItems.map((item) => {
               const Icon = item.icon;
               const isActive = activeTab === item.id;
+              const isAccessible = isTabAccessible(item.id);
+
+              if (!isAccessible) {
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    disabled
+                    title="Locked: Please click the 'Proceed' button on the current page to progress through the recipe costing workflow."
+                    className="relative flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-emerald-200/40 bg-transparent opacity-50 cursor-not-allowed select-none"
+                  >
+                    <Icon className="w-4 h-4 text-emerald-300/40" />
+                    <span>{item.label}</span>
+                    <Lock className="w-3 h-3 text-emerald-300/50" />
+                  </button>
+                );
+              }
+
               return (
                 <button
                   key={item.id}
+                  type="button"
                   onClick={() => setActiveTab(item.id)}
-                  className={`relative flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all ${
+                  className={`relative flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                     isActive
                       ? 'bg-emerald-600 text-white shadow-sm'
                       : 'text-emerald-100/80 hover:text-white hover:bg-emerald-800/60'
@@ -100,15 +169,29 @@ export const Header: React.FC<HeaderProps> = ({
             })}
           </nav>
 
-          {/* Quick Actions / Mobile Menu Indicator */}
+          {/* Right Action Buttons */}
           <div className="flex items-center gap-2">
+            {/* Quick Calculator Button (Always accessible) */}
             <button
-              onClick={onOpenLogoModal}
-              className="text-xs font-bold text-emerald-200 hover:text-white bg-emerald-900/70 hover:bg-emerald-800/80 border border-emerald-700/60 px-3 py-1.5 rounded-xl transition-all flex items-center gap-1.5 shadow-2xs"
+              onClick={onOpenQuickCalc}
+              title="Quickly divide bulk purchase items by number of guests"
+              className="text-xs font-extrabold text-amber-200 hover:text-white bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400/50 px-3.5 py-2 rounded-xl transition-all flex items-center gap-2 shadow-xs cursor-pointer"
             >
-              <ImageIcon className="w-3.5 h-3.5 text-emerald-300" />
-              <span className="hidden sm:inline">Change Logo</span>
+              <Scale className="w-4 h-4 text-amber-300" />
+              <span>Quick Calculator</span>
             </button>
+
+            {/* Developer Mode Only: Change Logo Button */}
+            {isDev && (
+              <button
+                onClick={onOpenLogoModal}
+                title="Developer Mode: Customize brand logo"
+                className="text-xs font-bold text-amber-200 hover:text-white bg-black/40 hover:bg-black/60 border border-amber-500/60 px-3 py-1.5 rounded-xl transition-all flex items-center gap-1.5 shadow-2xs cursor-pointer"
+              >
+                <Code className="w-3.5 h-3.5 text-amber-400" />
+                <span className="hidden sm:inline text-[11px]">Logo (Dev)</span>
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -119,11 +202,30 @@ export const Header: React.FC<HeaderProps> = ({
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
+            const isAccessible = isTabAccessible(item.id);
+
+            if (!isAccessible) {
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  disabled
+                  title="Locked: Please click the 'Proceed' button on the current page."
+                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold text-emerald-200/40 opacity-50 cursor-not-allowed whitespace-nowrap"
+                >
+                  <Icon className="w-3.5 h-3.5 text-emerald-300/40" />
+                  <span>{item.label}</span>
+                  <Lock className="w-2.5 h-2.5 text-emerald-300/50" />
+                </button>
+              );
+            }
+
             return (
               <button
                 key={item.id}
+                type="button"
                 onClick={() => setActiveTab(item.id)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
                   isActive
                     ? 'bg-emerald-600 text-white shadow-xs'
                     : 'text-emerald-100/80 hover:bg-emerald-800/60'
@@ -144,3 +246,4 @@ export const Header: React.FC<HeaderProps> = ({
     </header>
   );
 };
+

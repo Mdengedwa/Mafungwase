@@ -42,20 +42,38 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   const [newAccInput, setNewAccInput] = useState('');
 
   // Presets State
-  const [presets, setPresets] = useState<PresetSuggestion[]>(() => {
+  const loadPresets = (): PresetSuggestion[] => {
     try {
       const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed;
+          // Keep all 50 default presets and ensure any custom costed recipes are preserved
+          const defaultIds = new Set(DEFAULT_PRESET_SUGGESTIONS.map((d) => d.id));
+          const customPresets = parsed.filter((p) => !defaultIds.has(p.id));
+          return [...customPresets, ...DEFAULT_PRESET_SUGGESTIONS];
         }
       }
     } catch (e) {
       console.error('Failed to parse saved presets:', e);
     }
     return DEFAULT_PRESET_SUGGESTIONS;
-  });
+  };
+
+  const [presets, setPresets] = useState<PresetSuggestion[]>(loadPresets);
+
+  // Listen for storage and recipe updates across screens
+  useEffect(() => {
+    const handleSync = () => {
+      setPresets(loadPresets());
+    };
+    window.addEventListener('storage', handleSync);
+    window.addEventListener('recipes_updated', handleSync);
+    return () => {
+      window.removeEventListener('storage', handleSync);
+      window.removeEventListener('recipes_updated', handleSync);
+    };
+  }, []);
 
   // Search & Filter State
   const [searchQuery, setSearchQuery] = useState('');
@@ -262,20 +280,25 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           <ChefHat className="w-64 h-64 text-emerald-200" />
         </div>
 
-        <div className="relative z-10 max-w-2xl">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="p-2.5 bg-emerald-800/50 rounded-2xl border border-emerald-600/40 backdrop-blur-xs shadow-inner">
-              <img
-                src={logoUrl}
-                alt="Logo"
-                className="w-10 h-10 object-contain rounded-xl"
-                onError={(e) => {
-                  (e.target as HTMLElement).style.display = 'none';
-                }}
-              />
+        <div className="relative z-10">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-3">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-emerald-800/50 rounded-2xl border border-emerald-600/40 backdrop-blur-xs shadow-inner shrink-0">
+                <img
+                  src={logoUrl}
+                  alt="Logo"
+                  className="w-10 h-10 object-contain rounded-xl"
+                  onError={(e) => {
+                    (e.target as HTMLElement).style.display = 'none';
+                  }}
+                />
+              </div>
+              <h2 className="text-xl sm:text-2xl md:text-3xl font-extrabold tracking-tight text-white drop-shadow-xs">
+                SOUS - For Profitable Kitchens
+              </h2>
             </div>
-            <div>
-              <span className="text-xs font-extrabold text-emerald-300 tracking-wider">
+            <div className="sm:text-right shrink-0">
+              <span className="text-xs sm:text-sm font-extrabold text-emerald-300 tracking-wider block">
                 Cell: +27 60 362 8760
               </span>
               <p className="text-xs text-emerald-100/80">
@@ -284,12 +307,11 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             </div>
           </div>
 
-          <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white mb-2">
-            For Profitable Kitchens
-          </h2>
-          <p className="text-emerald-100/90 text-xs sm:text-sm leading-relaxed font-normal">
-            Cost each recipe accompaniment, assemble balanced plated meals with waste/yield factors, and generate instant client quotations.
-          </p>
+          <div className="max-w-2xl mx-auto text-center pt-2">
+            <p className="text-emerald-100/90 text-xs sm:text-sm leading-relaxed font-normal">
+              Stop Running the Numbers. Start Owning the Room.
+            </p>
+          </div>
         </div>
       </div>
 
@@ -440,7 +462,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             <div className="flex items-center gap-2">
               <span className="text-xs font-extrabold text-emerald-900 uppercase tracking-wider flex items-center gap-1.5">
                 <Sparkles className="w-4 h-4 text-emerald-600" />
-                Dish Suggestion Library ({presets.length})
+                Recipe Library ({presets.length})
               </span>
               <span className="px-2 py-0.5 text-[10px] font-extrabold text-emerald-800 bg-emerald-100/80 border border-emerald-200 rounded-full">
                 {presets.length} Presets Available
@@ -458,13 +480,13 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-extrabold text-white bg-emerald-800 hover:bg-emerald-900 rounded-xl transition-all shadow-2xs"
             >
               <Plus className="w-3.5 h-3.5" />
-              Add Suggestion
+              Add Recipe
             </button>
             <button
               type="button"
               onClick={() => setIsBulkModalOpen(true)}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-extrabold text-stone-700 bg-stone-100 hover:bg-stone-200 border border-stone-300 rounded-xl transition-all"
-              title="Bulk import or paste dish suggestions"
+              title="Bulk import or paste recipes"
             >
               <Upload className="w-3.5 h-3.5 text-stone-600" />
               Import
@@ -473,7 +495,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               type="button"
               onClick={handleResetDefaults}
               className="p-1.5 text-stone-400 hover:text-stone-700 hover:bg-stone-100 rounded-xl transition-colors"
-              title="Reset suggestions to default 50 catering menus"
+              title="Reset to default catering recipes"
             >
               <RotateCcw className="w-3.5 h-3.5" />
             </button>
@@ -630,7 +652,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                   onClick={() => setDisplayLimit((prev) => prev + 12)}
                   className="inline-flex items-center gap-1.5 px-5 py-2 text-xs font-extrabold text-emerald-900 bg-emerald-100/60 hover:bg-emerald-100 border border-emerald-300/80 rounded-2xl transition-all shadow-2xs"
                 >
-                  <span>Show More Dish Suggestions ({filteredPresets.length - displayLimit} remaining)</span>
+                  <span>Show More Recipes ({filteredPresets.length - displayLimit} remaining)</span>
                   <ChevronDown className="w-4 h-4 text-emerald-800" />
                 </button>
               </div>
@@ -638,9 +660,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           </>
         ) : (
           <div className="p-8 text-center bg-stone-50 border border-dashed border-stone-200 rounded-2xl text-stone-500">
-            <p className="text-xs font-bold text-stone-700">No dish suggestions found.</p>
+            <p className="text-xs font-bold text-stone-700">No recipes found.</p>
             <p className="text-[11px] text-stone-400 mt-1 mb-3">
-              Try adjusting your search query or add a new custom suggestion!
+              Try adjusting your search query or add a new custom recipe!
             </p>
             <button
               type="button"
@@ -648,33 +670,48 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-extrabold text-white bg-emerald-800 hover:bg-emerald-900 rounded-xl transition-all"
             >
               <Plus className="w-3.5 h-3.5" />
-              Add Custom Suggestion
+              Add Custom Recipe
             </button>
           </div>
         )}
       </div>
 
-      {/* Bottom Action Bar Card */}
-      <div className="bg-white rounded-2xl p-4 sm:p-5 border-2 border-black shadow-2xs flex justify-end">
+      {/* Sticky Bottom Action Bar Card - Always visible throughout scrolling */}
+      <div className="sticky bottom-4 z-30 bg-white/95 backdrop-blur-md rounded-3xl p-4 sm:p-5 border-2 border-black shadow-xl flex flex-col sm:flex-row items-center justify-between gap-3 transition-all">
+        <div className="flex items-center gap-3 w-full sm:w-auto min-w-0">
+          <div className="w-10 h-10 rounded-2xl bg-emerald-100 border border-emerald-300/80 flex items-center justify-center shrink-0">
+            <UtensilsCrossed className="w-5 h-5 text-emerald-800" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="font-extrabold text-stone-900 text-sm sm:text-base truncate">
+              {dishName.trim() || 'Custom Platter'}
+            </div>
+            <div className="text-xs text-stone-500 font-semibold flex items-center gap-1.5">
+              <span className="inline-block w-2 h-2 rounded-full bg-emerald-600 animate-pulse"></span>
+              <span>{accompanimentNames.length} Accompaniments Listed</span>
+            </div>
+          </div>
+        </div>
+
         <button
           type="button"
           onClick={onContinue}
           disabled={!dishName.trim() || accompanimentNames.length === 0}
-          className="inline-flex items-center gap-2.5 px-7 py-3.5 text-sm font-extrabold text-white bg-emerald-700 hover:bg-emerald-800 disabled:opacity-50 disabled:cursor-not-allowed rounded-2xl shadow-md transition-all transform active:scale-98"
+          className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-7 py-3.5 text-sm font-extrabold text-white bg-emerald-700 hover:bg-emerald-800 disabled:opacity-50 disabled:cursor-not-allowed rounded-2xl shadow-md transition-all transform active:scale-98 cursor-pointer shrink-0"
         >
           <span>Proceed to Accompaniment Calculators</span>
           <ArrowRight className="w-4 h-4" />
         </button>
       </div>
 
-      {/* Add / Edit Dish Suggestion Modal */}
+      {/* Add / Edit Recipe Modal */}
       {isAddModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
           <div className="bg-white rounded-3xl p-6 sm:p-7 max-w-lg w-full border-2 border-black shadow-xl space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-stone-100">
               <h3 className="text-base font-extrabold text-stone-900 flex items-center gap-2">
                 <FolderPlus className="w-5 h-5 text-emerald-700" />
-                {editingPreset ? 'Edit Dish Suggestion' : 'Add Custom Dish Suggestion'}
+                {editingPreset ? 'Edit Recipe' : 'Add Custom Recipe'}
               </h3>
               <button
                 type="button"
@@ -758,7 +795,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             <div className="flex items-center justify-between pb-3 border-b border-stone-100">
               <h3 className="text-base font-extrabold text-stone-900 flex items-center gap-2">
                 <Upload className="w-5 h-5 text-emerald-700" />
-                Bulk Import Dish Suggestions
+                Bulk Import Recipes
               </h3>
               <button
                 type="button"
