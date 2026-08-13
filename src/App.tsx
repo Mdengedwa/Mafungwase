@@ -135,7 +135,7 @@ export default function App() {
   }, [logoUrl]);
 
   // Build Accompaniments from accompanimentNames when navigating from Home
-  const handleBuildAccompanimentsFromHome = () => {
+  const handleBuildAccompanimentsFromHome = (shouldNavigate: boolean = true) => {
     const newAccs: Accompaniment[] = accompanimentNames.map((name, index) => {
       // Find existing accompaniment if name matches
       const existing = accompaniments.find(
@@ -322,14 +322,16 @@ export default function App() {
     const recalculatedQuote = recalculateQuote(newQuote, [recalculatedMeal]);
     setQuote(recalculatedQuote);
 
-    // Proceed to Accompaniments Calculator
-    setActiveTab('accompaniments');
+    // Proceed to Accompaniments Calculator if requested
+    if (shouldNavigate) {
+      setActiveTab('accompaniments');
+    }
   };
 
-  // Build initial data on first mount if empty
+  // Build initial data on first mount if empty without changing landing page tab
   useEffect(() => {
     if (accompaniments.length === 0) {
-      handleBuildAccompanimentsFromHome();
+      handleBuildAccompanimentsFromHome(false);
     }
   }, []);
 

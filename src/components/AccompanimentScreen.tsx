@@ -11,6 +11,14 @@ import {
   ArrowRight,
   Info,
   CheckCircle2,
+  PieChart as PieChartIcon,
+  Camera,
+  Copy,
+  Check,
+  Eye,
+  Layers,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import {
   Accompaniment,
@@ -25,6 +33,7 @@ import {
   calculateIngredientRow,
 } from '../utils/calculations';
 import { SpoonDensityModal } from './SpoonDensityModal';
+import platedMealPieChartImg from '../assets/images/plated_meal_pie_chart_1786617201280.jpg';
 
 interface AccompanimentScreenProps {
   accompaniments: Accompaniment[];
@@ -43,7 +52,55 @@ export const AccompanimentScreen: React.FC<AccompanimentScreenProps> = ({
   const [viewMode, setViewMode] = useState<'simple' | 'detailed'>('simple');
   const [isSpoonModalOpen, setIsSpoonModalOpen] = useState<boolean>(false);
 
+  // Plated Meal Pie Chart Section States
+  const [activeVisualTab, setActiveVisualTab] = useState<'pie' | 'photo' | 'prompt'>('pie');
+  const [copiedPrompt, setCopiedPrompt] = useState<boolean>(false);
+  const [hoveredSliceIndex, setHoveredSliceIndex] = useState<number | null>(null);
+  const [isPieSectionCollapsed, setIsPieSectionCollapsed] = useState<boolean>(false);
+
   const activeAcc = accompaniments[activeAccIndex] || accompaniments[0];
+
+  // Total meal portion grams
+  const totalMealGrams = Math.max(
+    1,
+    accompaniments.reduce((sum, a) => sum + (a.portionSizeGrams || 150), 0)
+  );
+
+  // Color palette for pie chart wedges
+  const sliceColors = [
+    { bg: 'bg-amber-500', fill: '#F59E0B', border: '#D97706', badgeBg: 'bg-amber-100 text-amber-900 border-amber-300', name: 'Fluffy White Rice' },
+    { bg: 'bg-red-700', fill: '#B91C1C', border: '#991B1B', badgeBg: 'bg-red-100 text-red-900 border-red-300', name: 'Tikka Chicken Fillet' },
+    { bg: 'bg-amber-800', fill: '#92400E', border: '#78350F', badgeBg: 'bg-amber-100 text-amber-900 border-amber-300', name: 'Butter Bean Curry' },
+    { bg: 'bg-emerald-600', fill: '#059669', border: '#047857', badgeBg: 'bg-emerald-100 text-emerald-900 border-emerald-300', name: 'Fresh Garden Sambal' },
+    { bg: 'bg-teal-500', fill: '#14B8A6', border: '#0D9488', badgeBg: 'bg-teal-100 text-teal-900 border-teal-300', name: 'Mint Sauce' },
+    { bg: 'bg-stone-300', fill: '#D6D3D1', border: '#A8A29E', badgeBg: 'bg-stone-200 text-stone-900 border-stone-400', name: 'Garlic Mayo' },
+    { bg: 'bg-orange-600', fill: '#EA580C', border: '#C2410C', badgeBg: 'bg-orange-100 text-orange-900 border-orange-300', name: 'Chakalaka / Gravy' },
+  ];
+
+  // Pie chart slices dataset
+  const pieData = accompaniments.map((acc, idx) => {
+    const grams = acc.portionSizeGrams || 150;
+    const pct = Math.round((grams / totalMealGrams) * 100);
+    const color = sliceColors[idx % sliceColors.length];
+    return {
+      acc,
+      idx,
+      grams,
+      pct,
+      color,
+    };
+  });
+
+  // Dynamic AI prompt string generated from actual accompaniments and calculated portion percentages
+  const dynamicPromptText = `Hyper-realistic top-down overhead shot of a round white ceramic dinner plate. The plate is divided into distinct, precise wedge-shaped slices like a pie chart (slice are determined by the number of accompaniments in the meal). The percentage is determined by the standard portion grams. The physical surface area of each food strictly matches its percentage of the whole plate: ${pieData
+    .map((d) => `${d.pct}% of ${d.acc.name}`)
+    .join(', ')}. Each food is neatly contained within its triangular slice with clean, visible dividing lines (like chart borders) between each wedge. Studio food photography, diffused soft lighting, shallow depth of field, 8k, highly detailed, appetizing, culinary magazine style, pure white background.`;
+
+  const handleCopyPrompt = () => {
+    navigator.clipboard.writeText(dynamicPromptText);
+    setCopiedPrompt(true);
+    setTimeout(() => setCopiedPrompt(false), 2500);
+  };
 
   if (!activeAcc) {
     return (
@@ -155,7 +212,7 @@ export const AccompanimentScreen: React.FC<AccompanimentScreenProps> = ({
   };
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-6 space-y-6 animate-in fade-in duration-300">
+    <div className="max-w-7xl mx-auto px-4 py-6 space-y-6 animate-in fade-in duration-300">
       {/* Top Tabs: Accompaniment Selector */}
       <div className="bg-white rounded-3xl p-3 shadow-xs border-2 border-black overflow-x-auto">
         <div className="flex items-center gap-2 min-w-max">
@@ -166,21 +223,34 @@ export const AccompanimentScreen: React.FC<AccompanimentScreenProps> = ({
           {accompaniments.map((acc, idx) => {
             const isActive = idx === activeAccIndex;
             const isCosted = acc.portionCost > 0 && acc.ingredients.length > 0;
+            const color = sliceColors[idx % sliceColors.length];
             return (
               <button
                 key={acc.id}
                 onClick={() => setActiveAccIndex(idx)}
-                className={`relative flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-extrabold transition-all ${
-                  isActive
-                    ? 'bg-emerald-700 text-white shadow-xs ring-2 ring-emerald-600/50'
-                    : 'bg-emerald-50/50 hover:bg-emerald-100/80 text-emerald-950 font-bold'
+                style={{
+                  backgroundColor: isActive ? color.fill : `${color.fill}1A`,
+                  borderColor: isActive ? color.border : `${color.fill}60`,
+                  color: isActive ? '#FFFFFF' : '#1C1917',
+                }}
+                className={`relative flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-extrabold border-2 transition-all cursor-pointer ${
+                  isActive ? 'shadow-md scale-[1.02] ring-2 ring-black/10' : 'hover:brightness-95'
                 }`}
               >
+                {/* Color Dot matching Pie Slice */}
+                <span
+                  className="w-3 h-3 rounded-full shrink-0 border border-white/60 shadow-xs"
+                  style={{ backgroundColor: color.fill }}
+                ></span>
                 <span>{acc.name}</span>
                 {isCosted ? (
-                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-black border ${
-                    isActive ? 'bg-emerald-950 text-emerald-200 border-emerald-800' : 'bg-emerald-100 text-emerald-900 border-emerald-300'
-                  }`}>
+                  <span
+                    style={{
+                      backgroundColor: isActive ? 'rgba(0, 0, 0, 0.35)' : 'rgba(255, 255, 255, 0.85)',
+                      color: isActive ? '#FFFFFF' : '#111827',
+                    }}
+                    className="px-2 py-0.5 rounded-full text-[10px] font-black border border-black/10"
+                  >
                     {formatCurrency(acc.portionCost)}
                   </span>
                 ) : (
@@ -192,48 +262,201 @@ export const AccompanimentScreen: React.FC<AccompanimentScreenProps> = ({
         </div>
       </div>
 
-      {/* Card 1: Header Banner */}
-      <div className="bg-white rounded-3xl p-6 shadow-xs border-2 border-black flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <h2 className="text-xl sm:text-2xl font-extrabold text-stone-900">
-              {activeAcc.name}
-            </h2>
-            <span className="text-xs text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
-              Recipe Costing
-            </span>
+      {/* 2-Column Side-by-Side Grid Layout: Left = Plate Visualizer, Right = Recipe Costing */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        {/* Column 1: Plated Meal Round Ceramic Plate Visualizer */}
+        <div className="lg:col-span-5 lg:sticky lg:top-6 space-y-4">
+          <div className="bg-white rounded-3xl p-6 shadow-xs border-2 border-black flex flex-col items-center justify-center">
+            {/* Header */}
+            <div className="text-center mb-3">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-black bg-emerald-100 text-emerald-950 border border-emerald-300 uppercase tracking-wider">
+                <PieChartIcon className="w-3.5 h-3.5 text-emerald-800" />
+                Plate Breakdown
+              </span>
+              <p className="text-xs text-stone-500 font-semibold mt-1">
+                Total Weight: <strong className="text-stone-900 font-extrabold">{totalMealGrams}g</strong> • Click slice to select
+              </p>
+            </div>
+
+            {/* Ceramic Plate */}
+            <div className="relative w-64 h-64 sm:w-72 sm:h-72 md:w-80 md:h-80 lg:w-72 lg:h-72 xl:w-80 xl:h-80 flex items-center justify-center my-1">
+              <div className="absolute inset-0 rounded-full bg-white shadow-xl border-8 border-stone-100 flex items-center justify-center overflow-hidden">
+                <svg viewBox="0 0 280 280" className="w-full h-full transform -rotate-90">
+                  {/* Plate Inner Circle Background */}
+                  <circle cx="140" cy="140" r="125" fill="#FAFAF9" stroke="#E7E5E4" strokeWidth="4" />
+
+                  {/* Pie Wedges */}
+                  {(() => {
+                    let cumulativePct = 0;
+                    return pieData.map((item, i) => {
+                      const startAngle = cumulativePct * 2 * Math.PI;
+                      cumulativePct += item.pct / 100;
+                      const endAngle = cumulativePct * 2 * Math.PI;
+                      const midAngle = startAngle + (endAngle - startAngle) / 2;
+
+                      const cx = 140;
+                      const cy = 140;
+                      const r = 120;
+
+                      const x1 = cx + r * Math.cos(startAngle);
+                      const y1 = cy + r * Math.sin(startAngle);
+                      const x2 = cx + r * Math.cos(endAngle);
+                      const y2 = cy + r * Math.sin(endAngle);
+
+                      // Label coordinates (positioned inside the wedge)
+                      const labelR = r * 0.58;
+                      const lx = cx + labelR * Math.cos(midAngle);
+                      const ly = cy + labelR * Math.sin(midAngle);
+
+                      const largeArcFlag = item.pct > 50 ? 1 : 0;
+
+                      const pathData =
+                        pieData.length === 1
+                          ? `M ${cx - r},${cy} a ${r},${r} 0 1,0 ${r * 2},0 a ${r},${r} 0 1,0 -${r * 2},0`
+                          : `M ${cx} ${cy} L ${x1} ${y1} A ${r} ${r} 0 ${largeArcFlag} 1 ${x2} ${y2} Z`;
+
+                      const isHovered = hoveredSliceIndex === i;
+                      const isActive = activeAccIndex === i;
+
+                      // Box dimensions tailored to display full name neatly
+                      const fullName = item.acc.name || 'Item';
+                      const boxWidth = Math.max(76, Math.min(94, Math.round(item.pct * 3.6)));
+                      const boxHeight = 44;
+
+                      return (
+                        <g
+                          key={item.acc.id}
+                          className="cursor-pointer group"
+                          onClick={() => setActiveAccIndex(i)}
+                          onMouseEnter={() => setHoveredSliceIndex(i)}
+                          onMouseLeave={() => setHoveredSliceIndex(null)}
+                        >
+                          {/* Wedge Path */}
+                          <path
+                            d={pathData}
+                            fill={item.color.fill}
+                            stroke="#FFFFFF"
+                            strokeWidth="3.5"
+                            className={`transition-all duration-200 hover:opacity-95 ${
+                              isHovered || isActive ? 'brightness-110 drop-shadow-md' : ''
+                            }`}
+                          />
+
+                          {/* Slice Label Overlay (Counter-rotated by +90deg to sit horizontal & upright) */}
+                          <g transform={`rotate(90 ${lx} ${ly})`}>
+                            <foreignObject
+                              x={lx - boxWidth / 2}
+                              y={ly - boxHeight / 2}
+                              width={boxWidth}
+                              height={boxHeight}
+                              className="pointer-events-none overflow-visible"
+                            >
+                              <div
+                                xmlns="http://www.w3.org/1999/xhtml"
+                                className={`w-full h-full flex flex-col items-center justify-center text-center rounded-lg px-1 py-0.5 transition-all shadow-xs ${
+                                  isActive
+                                    ? 'bg-slate-900/90 border-1.5 border-amber-400 text-white ring-2 ring-amber-400/30'
+                                    : 'bg-slate-900/80 border border-white/40 text-white'
+                                }`}
+                                style={{ boxSizing: 'border-box' }}
+                              >
+                                {/* Full multiline title without truncation */}
+                                <span
+                                  className="font-extrabold leading-tight text-white break-words w-full px-0.5"
+                                  style={{
+                                    fontSize: fullName.length > 20 ? '7px' : fullName.length > 14 ? '7.5px' : '8.5px',
+                                    lineHeight: '1.15',
+                                  }}
+                                >
+                                  {fullName}
+                                </span>
+                                {/* Percentage & Grams */}
+                                <span className="text-[7.5px] font-black text-amber-300 leading-none mt-0.5 whitespace-nowrap">
+                                  {item.pct}% ({item.grams}g)
+                                </span>
+                              </div>
+                            </foreignObject>
+                          </g>
+                        </g>
+                      );
+                    });
+                  })()}
+
+                  {/* Plate Center Cap */}
+                  <circle cx="140" cy="140" r="16" fill="#FFFFFF" stroke="#D6D3D1" strokeWidth="2" />
+                </svg>
+              </div>
+            </div>
+
+            {/* Selected Accompaniment Indicator */}
+            <div className="mt-3 text-center">
+              {(() => {
+                const activeItem = pieData[activeAccIndex];
+                const activeColor = activeItem?.color;
+                return (
+                  <span
+                    style={{
+                      backgroundColor: activeColor ? activeColor.fill : '#E7E5E4',
+                      borderColor: activeColor ? activeColor.border : '#D6D3D1',
+                    }}
+                    className="inline-flex items-center gap-1.5 text-xs font-black text-white px-4 py-1.5 rounded-full border-2 shadow-xs transition-all"
+                  >
+                    <span>🍽️</span>
+                    <span>{activeItem?.acc.name || 'Accompaniment'}</span>
+                    <span className="bg-black/30 px-2 py-0.5 rounded-full text-[10px] text-amber-200">
+                      {activeItem?.pct}% • {activeItem?.grams}g
+                    </span>
+                  </span>
+                );
+              })()}
+            </div>
           </div>
-          <p className="text-xs text-stone-500 mt-1">
-            Cost individual ingredients, yields, and calculate standard portion costs.
-          </p>
         </div>
 
-        {/* Simple vs Detailed Toggle */}
-        <div className="flex items-center gap-1.5 bg-emerald-50/80 p-1.5 rounded-2xl self-start sm:self-auto border border-emerald-100">
-          <button
-            onClick={() => setViewMode('simple')}
-            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-extrabold transition-all ${
-              viewMode === 'simple'
-                ? 'bg-white text-emerald-950 shadow-xs'
-                : 'text-emerald-800 hover:text-emerald-950'
-            }`}
-          >
-            <Calculator className="w-3.5 h-3.5 text-emerald-700" />
-            Simple View
-          </button>
-          <button
-            onClick={() => setViewMode('detailed')}
-            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-extrabold transition-all ${
-              viewMode === 'detailed'
-                ? 'bg-emerald-800 text-white shadow-xs'
-                : 'text-emerald-800 hover:text-emerald-950'
-            }`}
-          >
-            <Sliders className="w-3.5 h-3.5" />
-            Detailed View (Yield Accounting)
-          </button>
-        </div>
-      </div>
+        {/* Column 2: Accompaniment Recipe Costing Cards */}
+        <div className="lg:col-span-7 space-y-6">
+          {/* Card 1: Header Banner */}
+          <div className="bg-white rounded-3xl p-6 shadow-xs border-2 border-black flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-xl sm:text-2xl font-extrabold text-stone-900">
+                  {activeAcc.name}
+                </h2>
+                <span className="text-xs text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                  Recipe Costing
+                </span>
+              </div>
+              <p className="text-xs text-stone-500 mt-1">
+                Cost individual ingredients, yields, and calculate standard portion costs.
+              </p>
+            </div>
+
+            {/* Simple vs Detailed Toggle */}
+            <div className="flex items-center gap-1.5 bg-emerald-50/80 p-1.5 rounded-2xl self-start sm:self-auto border border-emerald-100">
+              <button
+                onClick={() => setViewMode('simple')}
+                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-extrabold transition-all ${
+                  viewMode === 'simple'
+                    ? 'bg-white text-emerald-950 shadow-xs'
+                    : 'text-emerald-800 hover:text-emerald-950'
+                }`}
+              >
+                <Calculator className="w-3.5 h-3.5 text-emerald-700" />
+                Simple View
+              </button>
+              <button
+                onClick={() => setViewMode('detailed')}
+                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-extrabold transition-all ${
+                  viewMode === 'detailed'
+                    ? 'bg-emerald-800 text-white shadow-xs'
+                    : 'text-emerald-800 hover:text-emerald-950'
+                }`}
+              >
+                <Sliders className="w-3.5 h-3.5" />
+                Detailed View (Yield Accounting)
+              </button>
+            </div>
+          </div>
 
       {/* Card 2: Batch & Portion Controls */}
       <div className="bg-white rounded-3xl p-6 shadow-xs border-2 border-black space-y-3">
@@ -703,6 +926,8 @@ export const AccompanimentScreen: React.FC<AccompanimentScreenProps> = ({
             </div>
           </div>
         </div>
+        </div>
+      </div>
 
       {/* Card 5: Navigation / Action Bar */}
       <div className="bg-white rounded-2xl p-4 sm:p-5 border-2 border-black shadow-2xs flex items-center justify-between">

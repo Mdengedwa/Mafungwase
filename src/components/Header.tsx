@@ -46,7 +46,7 @@ export const Header: React.FC<HeaderProps> = ({
     <header className="sticky top-0 z-40 bg-[#0B3B28] text-white shadow-md border-b border-emerald-900/80">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
-          {/* Logo & App Title */}
+          {/* Logo & Brand */}
           <div className="flex items-center gap-3">
             <button
               onClick={onOpenLogoModal}
@@ -65,13 +65,6 @@ export const Header: React.FC<HeaderProps> = ({
                 <ImageIcon className="w-4 h-4 text-emerald-300" />
               </div>
             </button>
-
-            <div>
-              <span className="hidden sm:inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-800/80 text-emerald-200 border border-emerald-700/60 shadow-2xs">
-                <Sparkles className="w-2.5 h-2.5 mr-1 text-emerald-300" />
-                Catering Cost Engine
-              </span>
-            </div>
           </div>
 
           {/* Nav Items - Desktop / Tablet */}

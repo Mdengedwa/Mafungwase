@@ -285,7 +285,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           </div>
 
           <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white mb-2">
-            Selling Food For Profit
+            For Profitable Kitchens
           </h2>
           <p className="text-emerald-100/90 text-xs sm:text-sm leading-relaxed font-normal">
             Cost each recipe accompaniment, assemble balanced plated meals with waste/yield factors, and generate instant client quotations.
