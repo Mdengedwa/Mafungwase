@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Image, Upload, RotateCcw, X, Check } from 'lucide-react';
+import defaultLogoImg from '../assets/images/food_costing_logo_1786443360654.jpg';
 
 interface LogoUploadModalProps {
   isOpen: boolean;
@@ -65,11 +66,14 @@ export const LogoUploadModal: React.FC<LogoUploadModalProps> = ({
             </p>
             <div className="flex justify-center items-center h-24">
               <img
-                src={selectedFilePreview || currentLogoUrl}
+                src={selectedFilePreview || currentLogoUrl || defaultLogoImg}
                 alt="Brand Logo"
                 className="max-h-20 max-w-full object-contain rounded-lg shadow-xs"
                 onError={(e) => {
-                  (e.target as HTMLElement).style.display = 'none';
+                  const target = e.currentTarget as HTMLImageElement;
+                  if (target.src !== defaultLogoImg) {
+                    target.src = defaultLogoImg;
+                  }
                 }}
               />
             </div>

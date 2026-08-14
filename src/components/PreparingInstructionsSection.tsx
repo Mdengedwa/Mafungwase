@@ -48,6 +48,7 @@ export const PreparingInstructionsSection: React.FC<PreparingInstructionsSection
   const [instructionsText, setInstructionsText] = useState<string>(
     activeAccompaniment.preparingInstructions || ''
   );
+  const instructionsRef = useRef<string>(activeAccompaniment.preparingInstructions || '');
   const [copied, setCopied] = useState<boolean>(false);
 
   // Live Speech-to-Text Dictation State
@@ -58,6 +59,7 @@ export const PreparingInstructionsSection: React.FC<PreparingInstructionsSection
   // Audio Recording (MediaRecorder) State
   const [isRecordingAudio, setIsRecordingAudio] = useState<boolean>(false);
   const [recordingSeconds, setRecordingSeconds] = useState<number>(0);
+  const recordingSecondsRef = useRef<number>(0);
   const [audioError, setAudioError] = useState<string | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -71,9 +73,11 @@ export const PreparingInstructionsSection: React.FC<PreparingInstructionsSection
   );
   const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
 
-  // Sync state when active accompaniment changes
+  // Keep instructionsRef and local state synced when active accompaniment changes
   useEffect(() => {
-    setInstructionsText(activeAccompaniment.preparingInstructions || '');
+    const currentNotes = activeAccompaniment.preparingInstructions || '';
+    instructionsRef.current = currentNotes;
+    setInstructionsText(currentNotes);
     setAudioDuration(activeAccompaniment.voiceNoteDuration || 0);
     setIsPlayingAudio(false);
     setPlaybackTime(0);
@@ -83,32 +87,49 @@ export const PreparingInstructionsSection: React.FC<PreparingInstructionsSection
     }
   }, [activeAccompaniment.id, activeAccIndex]);
 
-  // Propagate text changes with debounce / update
+  // Clean up timers and audio recording on unmount
+  useEffect(() => {
+    return () => {
+      if (recordingTimerRef.current) {
+        clearInterval(recordingTimerRef.current);
+      }
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop();
+        } catch {
+          // ignore
+        }
+      }
+    };
+  }, []);
+
+  // Propagate text changes safely
   const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const val = e.target.value;
+    instructionsRef.current = val;
     setInstructionsText(val);
     onUpdateInstructions(val);
   };
 
   // Quick Insert Helper tags
   const insertSnippet = (snippet: string) => {
-    setInstructionsText((prev) => {
-      const updated = prev ? `${prev.trim()}\n${snippet}` : snippet;
-      onUpdateInstructions(updated);
-      return updated;
-    });
+    const prev = instructionsRef.current;
+    const updated = prev ? `${prev.trim()}\n${snippet}` : snippet;
+    instructionsRef.current = updated;
+    setInstructionsText(updated);
+    onUpdateInstructions(updated);
   };
 
   const addStepNumber = () => {
-    const lines = instructionsText.split('\n').filter((l) => l.trim().length > 0);
+    const lines = instructionsRef.current.split('\n').filter((l) => l.trim().length > 0);
     const stepNumber = lines.length + 1;
     insertSnippet(`Step ${stepNumber}: `);
   };
 
   // Copy to clipboard
   const handleCopy = () => {
-    if (!instructionsText) return;
-    navigator.clipboard.writeText(instructionsText);
+    if (!instructionsRef.current) return;
+    navigator.clipboard.writeText(instructionsRef.current);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -116,6 +137,7 @@ export const PreparingInstructionsSection: React.FC<PreparingInstructionsSection
   // Clear instructions
   const handleClear = () => {
     if (confirm('Clear all preparation instructions for this accompaniment?')) {
+      instructionsRef.current = '';
       setInstructionsText('');
       onUpdateInstructions('');
     }
@@ -162,12 +184,12 @@ export const PreparingInstructionsSection: React.FC<PreparingInstructionsSection
         }
 
         if (finalTranscript) {
-          setInstructionsText((prev) => {
-            const separator = prev && !prev.endsWith(' ') && !prev.endsWith('\n') ? ' ' : '';
-            const updated = prev + separator + finalTranscript.trim();
-            onUpdateInstructions(updated);
-            return updated;
-          });
+          const prev = instructionsRef.current;
+          const separator = prev && !prev.endsWith(' ') && !prev.endsWith('\n') ? ' ' : '';
+          const updated = prev + separator + finalTranscript.trim();
+          instructionsRef.current = updated;
+          setInstructionsText(updated);
+          onUpdateInstructions(updated);
         }
       };
 
@@ -212,13 +234,14 @@ export const PreparingInstructionsSection: React.FC<PreparingInstructionsSection
       };
 
       mediaRecorder.onstop = () => {
+        const finalDuration = recordingSecondsRef.current;
         const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
         const reader = new FileReader();
         reader.readAsDataURL(audioBlob);
         reader.onloadend = () => {
           const base64Audio = reader.result as string;
-          onUpdateVoiceNote(base64Audio, recordingSeconds);
-          setAudioDuration(recordingSeconds);
+          onUpdateVoiceNote(base64Audio, finalDuration);
+          setAudioDuration(finalDuration);
         };
         // Stop all audio tracks to release microphone
         stream.getTracks().forEach((track) => track.stop());
@@ -227,8 +250,10 @@ export const PreparingInstructionsSection: React.FC<PreparingInstructionsSection
       mediaRecorder.start(200); // chunk every 200ms
       setIsRecordingAudio(true);
       setRecordingSeconds(0);
+      recordingSecondsRef.current = 0;
 
       recordingTimerRef.current = setInterval(() => {
+        recordingSecondsRef.current += 1;
         setRecordingSeconds((prev) => prev + 1);
       }, 1000);
     } catch (err: any) {

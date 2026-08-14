@@ -63,7 +63,7 @@ export const SpecialsScreen: React.FC<SpecialsScreenProps> = ({
     d.setDate(d.getDate() + 7);
     return d.toISOString().split('T')[0];
   });
-  const [formContactNumber, setFormContactNumber] = useState<string>('+27 60 362 8760');
+  const [formContactNumber, setFormContactNumber] = useState<string>('(+27) 60 362 8760');
 
   // Extract all unique locations for the location filter
   const availableLocations: string[] = Array.from(

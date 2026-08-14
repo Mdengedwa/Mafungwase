@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import defaultLogoImg from '../assets/images/food_costing_logo_1786443360654.jpg';
 import {
   Utensils,
   Calculator,
@@ -6,6 +7,7 @@ import {
   FileSpreadsheet,
   Database,
   Tag,
+  ChefHat,
   Image as ImageIcon,
   Scale,
   Sparkles,
@@ -13,7 +15,7 @@ import {
   Lock,
 } from 'lucide-react';
 
-export type ActiveTab = 'home' | 'accompaniments' | 'meals' | 'quotes' | 'orderList' | 'specials';
+export type ActiveTab = 'home' | 'accompaniments' | 'meals' | 'quotes' | 'orderList' | 'communityRecipes';
 
 interface HeaderProps {
   activeTab: ActiveTab;
@@ -26,7 +28,7 @@ interface HeaderProps {
   accompanimentsCount: number;
   mealsCount: number;
   quotesCount: number;
-  specialsCount?: number;
+  recipesCount?: number;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -40,7 +42,7 @@ export const Header: React.FC<HeaderProps> = ({
   accompanimentsCount,
   mealsCount,
   quotesCount,
-  specialsCount = 0,
+  recipesCount = 0,
 }) => {
   // Check if developer mode is enabled via URL search param (?dev=true) or prop or localStorage
   const [isDev, setIsDev] = useState<boolean>(() => {
@@ -65,11 +67,11 @@ export const Header: React.FC<HeaderProps> = ({
     { id: 'meals', label: 'Meal Assembly', icon: Layers, badge: mealsCount },
     { id: 'quotes', label: 'Quotes', icon: FileSpreadsheet, badge: quotesCount },
     { id: 'orderList', label: 'Order List', icon: Database },
-    { id: 'specials', label: 'Specials', icon: Tag, badge: specialsCount },
+    { id: 'communityRecipes', label: 'Our Community Recipes', icon: ChefHat, badge: recipesCount },
   ];
 
-  // Order List, Specials, and Dish Setup are always directly accessible without click-throughs
-  const alwaysAccessibleTabs: ActiveTab[] = ['home', 'orderList', 'specials'];
+  // Order List, Community Recipes, and Dish Setup are always directly accessible without click-throughs
+  const alwaysAccessibleTabs: ActiveTab[] = ['home', 'orderList', 'communityRecipes'];
 
   const isTabAccessible = (tabId: ActiveTab) => {
     if (alwaysAccessibleTabs.includes(tabId)) return true;
@@ -89,11 +91,14 @@ export const Header: React.FC<HeaderProps> = ({
                 className="relative group flex items-center justify-center p-1 bg-[#06261A] rounded-2xl border border-amber-500/80 hover:border-amber-300 transition-all cursor-pointer overflow-hidden shadow-xs ring-2 ring-amber-500/30"
               >
                 <img
-                  src={logoUrl}
-                  alt="Logo"
+                  src={logoUrl || defaultLogoImg}
+                  alt="SOUS Logo"
                   className="h-9 w-9 object-contain rounded-xl"
                   onError={(e) => {
-                    (e.target as HTMLElement).style.display = 'none';
+                    const target = e.currentTarget as HTMLImageElement;
+                    if (target.src !== defaultLogoImg) {
+                      target.src = defaultLogoImg;
+                    }
                   }}
                 />
                 <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity rounded-xl">
@@ -103,11 +108,14 @@ export const Header: React.FC<HeaderProps> = ({
             ) : (
               <div className="flex items-center justify-center p-1 bg-[#06261A] rounded-2xl border border-emerald-800/80 overflow-hidden shadow-xs">
                 <img
-                  src={logoUrl}
-                  alt="Logo"
+                  src={logoUrl || defaultLogoImg}
+                  alt="SOUS Logo"
                   className="h-9 w-9 object-contain rounded-xl"
                   onError={(e) => {
-                    (e.target as HTMLElement).style.display = 'none';
+                    const target = e.currentTarget as HTMLImageElement;
+                    if (target.src !== defaultLogoImg) {
+                      target.src = defaultLogoImg;
+                    }
                   }}
                 />
               </div>

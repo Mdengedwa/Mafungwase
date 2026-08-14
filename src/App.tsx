@@ -5,7 +5,7 @@ import { AccompanimentScreen } from './components/AccompanimentScreen';
 import { MealScreen } from './components/MealScreen';
 import { QuoteScreen } from './components/QuoteScreen';
 import { OrderListScreen } from './components/OrderListScreen';
-import { SpecialsScreen } from './components/SpecialsScreen';
+import { CommunityRecipesScreen } from './components/CommunityRecipesScreen';
 import { LogoUploadModal } from './components/LogoUploadModal';
 import { QuickCalculatorModal } from './components/QuickCalculatorModal';
 
@@ -21,24 +21,30 @@ import {
   calculateIngredientRow,
 } from './utils/calculations';
 
-// Default Logo generated
-const DEFAULT_LOGO = '/src/assets/images/food_costing_logo_1786443360654.jpg';
+import defaultLogoImg from './assets/images/food_costing_logo_1786443360654.jpg';
+
+// Default Logo processed via Vite asset bundler for production/Vercel support
+export const DEFAULT_LOGO = defaultLogoImg;
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<ActiveTab>('home');
   const [isLogoModalOpen, setIsLogoModalOpen] = useState(false);
   const [isQuickCalcOpen, setIsQuickCalcOpen] = useState(false);
 
-  // Unlocked navigation tabs - orderList and specials are always accessible
+  // Unlocked navigation tabs - orderList and communityRecipes are always accessible
   const [unlockedTabs, setUnlockedTabs] = useState<ActiveTab[]>([
     'home',
     'orderList',
-    'specials',
+    'communityRecipes',
   ]);
 
-  // Logo State (stored in localStorage if modified)
+  // Logo State (stored in localStorage if modified, ensuring stale /src/ dev paths are cleared)
   const [logoUrl, setLogoUrl] = useState<string>(() => {
-    return localStorage.getItem('food_costing_app_logo') || DEFAULT_LOGO;
+    const saved = localStorage.getItem('food_costing_app_logo');
+    if (!saved || saved.startsWith('/src/') || saved === '/logo.png') {
+      return DEFAULT_LOGO;
+    }
+    return saved;
   });
 
   // Order List State
@@ -367,7 +373,6 @@ export default function App() {
         accompanimentsCount={accompaniments.length}
         mealsCount={currentMeal.accompanimentIds.length > 0 ? 1 : 0}
         quotesCount={quote.meals.length > 0 ? 1 : 0}
-        specialsCount={specials.filter((s) => s.status === 'approved').length}
       />
 
       {/* Main Content Body */}
@@ -431,12 +436,16 @@ export default function App() {
           />
         )}
 
-        {activeTab === 'specials' && (
-          <SpecialsScreen
-            specials={specials}
-            setSpecials={setSpecials}
-            orderList={orderList}
-            setOrderList={setOrderList}
+        {activeTab === 'communityRecipes' && (
+          <CommunityRecipesScreen
+            dishName={dishName}
+            setDishName={setDishName}
+            accompanimentNames={accompanimentNames}
+            setAccompanimentNames={setAccompanimentNames}
+            onNavigateToDishSetup={() => {
+              setActiveTab('home');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
             logoUrl={logoUrl}
           />
         )}
@@ -446,8 +455,18 @@ export default function App() {
       <footer className="bg-stone-900 text-stone-400 text-xs border-t border-stone-800 py-6 text-center">
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <img src={logoUrl} alt="Logo" className="w-5 h-5 object-contain rounded" />
-            <span className="font-semibold text-stone-200">MDU'S COST KITCHEN</span>
+            <img
+              src={logoUrl || DEFAULT_LOGO}
+              alt="Logo"
+              className="w-5 h-5 object-contain rounded"
+              onError={(e) => {
+                const target = e.currentTarget as HTMLImageElement;
+                if (target.src !== DEFAULT_LOGO) {
+                  target.src = DEFAULT_LOGO;
+                }
+              }}
+            />
+            <span className="font-semibold text-stone-200">SOUS - FOR PROFITABLE KITCHENS</span>
             <span>— Professional Catering Cost Accounting</span>
           </div>
           <p className="text-[11px] text-stone-500">

@@ -158,3 +158,35 @@ export interface OrderChangeProposal {
   verifiedBy?: string;
 }
 
+export interface PresetSuggestion {
+  id: string;
+  title: string;
+  category: string;
+  accompaniments: string[];
+  isCustom?: boolean;
+  preparedBy?: string;
+  availableToCook?: 'Yes' | 'No';
+  contactDetails?: string;
+  dayRate?: string;
+}
+
+export interface ChefBookingInquiry {
+  id: string;
+  presetId?: string;
+  dishTitle: string;
+  preparedBy: string;
+  chefContact?: string;
+  dayRate?: string;
+  clientName: string;
+  clientContact: string;
+  clientEmail?: string;
+  eventType: string;
+  eventDate: string;
+  guestCount: number | string;
+  location?: string;
+  message: string;
+  createdAt: string;
+  status: 'Pending' | 'Contacted' | 'Booked' | 'Declined';
+}
+
+

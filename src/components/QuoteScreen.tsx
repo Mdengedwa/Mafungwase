@@ -13,6 +13,7 @@ import {
   Check,
 } from 'lucide-react';
 import { Meal, Quote, QuoteMealItem } from '../types';
+import defaultLogoImg from '../assets/images/food_costing_logo_1786443360654.jpg';
 import {
   formatCurrency,
   formatPercent,
@@ -432,11 +433,14 @@ Thank you for choosing our catering service!
             <div className="flex items-center justify-between pb-6 border-b border-stone-200">
               <div className="flex items-center gap-3">
                 <img
-                  src={logoUrl}
-                  alt="Logo"
+                  src={logoUrl || defaultLogoImg}
+                  alt="SOUS Logo"
                   className="h-12 w-12 object-contain rounded-lg"
                   onError={(e) => {
-                    (e.target as HTMLElement).style.display = 'none';
+                    const target = e.currentTarget as HTMLImageElement;
+                    if (target.src !== defaultLogoImg) {
+                      target.src = defaultLogoImg;
+                    }
                   }}
                 />
                 <div>

@@ -12,7 +12,7 @@ export const INITIAL_STORE_SPECIALS: StoreSpecial[] = [
     status: 'approved',
     uploadedBy: 'Chester Butchery Store Manager',
     dateUploaded: '2026-07-30',
-    contactNumber: '+27 60 362 8760',
+    contactNumber: '(+27) 60 362 8760',
     location: 'All Chester Butcheries Stores',
     termsAndConditions: 'Promotion valid from 31 July - 01 August 2026 at all Chester Butcheries stores, while stocks last. Product images are for illustrative purposes. T&Cs apply.',
     fileType: 'image',

@@ -4,9 +4,196 @@ export interface PresetSuggestion {
   category: string;
   accompaniments: string[];
   isCustom?: boolean;
+  preparedBy?: string; // Nickname e.g. "Chef Sis Gugu"
+  availableToCook?: 'Yes' | 'No'; // Available to cook for events
+  contactDetails?: string; // Phone / WhatsApp / Email (visible only to App Manager)
+  dayRate?: string; // e.g. "R1,500 / day"
+}
+
+export interface ChefBookingInquiry {
+  id: string;
+  presetId?: string;
+  dishTitle: string;
+  preparedBy: string;
+  chefContact?: string;
+  dayRate?: string;
+  clientName: string;
+  clientContact: string; // Phone / WhatsApp (Manager only)
+  clientEmail?: string;
+  eventType: string; // Wedding, Birthday, Private Party, Corporate, etc.
+  eventDate: string;
+  guestCount: number | string;
+  location?: string;
+  message: string;
+  createdAt: string;
+  status: 'Pending' | 'Contacted' | 'Booked' | 'Declined';
 }
 
 export const DEFAULT_PRESET_SUGGESTIONS: PresetSuggestion[] = [
+  // Zulu Traditional Cuisine
+  {
+    id: 'preset-zulu-1',
+    title: 'Inyama Yenhloko & Ujeqe Feast',
+    category: 'Zulu',
+    accompaniments: ['Steamed Dumpling (Ujeqe)', 'Inyama Yenhloko (Slow-Braised Cow Head Meat)', 'Spicy Chakalaka', 'Chilli & Onion Gravy'],
+    preparedBy: 'Mama Gugu (Durban Central)',
+    availableToCook: 'Yes',
+    contactDetails: '+27 82 459 8120',
+    dayRate: 'R1,400 / day',
+  },
+  {
+    id: 'preset-zulu-2',
+    title: 'Inyama Yenkukhu YesiZulu & Phutu',
+    category: 'Zulu',
+    accompaniments: ['Phutu Pap (Crumbly Maize Pap)', 'Inyama Yenkukhu YesiZulu (Hardbody Chicken Stew)', 'Creamy Braised Spinach (Imfino)', 'Savory Chicken Broth Gravy'],
+    preparedBy: 'Chef Biyela (KZN)',
+    availableToCook: 'Yes',
+    contactDetails: '+27 73 901 3456',
+    dayRate: 'R1,500 / day',
+  },
+  {
+    id: 'preset-zulu-3',
+    title: 'Mogodu / Ulusu & Steamed Dombolo',
+    category: 'Zulu',
+    accompaniments: ['Steamed Bread (Dombolo)', 'Slow-Cooked Mogodu / Ulusu (Tripe)', 'Spicy Chakalaka Relish', 'Steamed Cabbage'],
+    preparedBy: 'Sis Thandiwe (Pinetown)',
+    availableToCook: 'Yes',
+    contactDetails: '+27 84 312 9087',
+    dayRate: 'R1,200 / day',
+  },
+  {
+    id: 'preset-zulu-4',
+    title: 'Inyama Yembuzi (Zulu Braised Goat) & Pap',
+    category: 'Zulu',
+    accompaniments: ['Stiff White Pap', 'Inyama Yembuzi (Traditional Zulu Goat Meat Stew)', 'Morogo Greens', 'Rich Meat Gravy'],
+    preparedBy: 'Bafana "King" Cele',
+    availableToCook: 'Yes',
+    contactDetails: '+27 71 678 4321',
+    dayRate: 'R1,800 / day',
+  },
+  {
+    id: 'preset-zulu-5',
+    title: 'Isidudu (Pumpkin Pap) & Grilled Wors Platter',
+    category: 'Zulu',
+    accompaniments: ['Isidudu (Soft Pumpkin Maize Pap)', 'Grilled Traditional Boerewors', 'Tomato & Onion Sheba Sauce', 'Chakalaka Dip'],
+    preparedBy: 'Gogo Zandile (Eshowe)',
+    availableToCook: 'Yes',
+    contactDetails: '+27 82 990 1145',
+    dayRate: 'R1,000 / day',
+  },
+  {
+    id: 'preset-zulu-6',
+    title: 'Umsobho Wezinselo (Cow Trotters / Amanqina)',
+    category: 'Zulu',
+    accompaniments: ['Stiff Maize Pap', 'Amanqina / Cow Trotters in Rich Gelatinous Gravy', 'Braised Morogo / Spinach', 'Hot Chakalaka'],
+    preparedBy: 'Mama Nomsa (Umlazi)',
+    availableToCook: 'Yes',
+    contactDetails: '+27 78 543 2198',
+    dayRate: 'R1,350 / day',
+  },
+  {
+    id: 'preset-zulu-7',
+    title: 'Traditional Umngqusho (Samp & Sugar Beans)',
+    category: 'Zulu',
+    accompaniments: ['Savory Umngqusho (Samp & Sugar Beans with Butter)', 'Slow Braised Beef Chuck Stew', 'Sweet Glazed Pumpkin Cubes', 'Tomato Relish'],
+    preparedBy: 'Chef Mthunzi',
+    availableToCook: 'Yes',
+    contactDetails: '+27 81 223 9940',
+    dayRate: 'R1,600 / day',
+  },
+  {
+    id: 'preset-zulu-8',
+    title: 'Usiponji (Steamed Sweetcorn Bread) & Beef Stew',
+    category: 'Zulu',
+    accompaniments: ['Steamed Sweetcorn Bread (Usiponji)', 'Tender Beef Shin Stew', 'Creamy Butternut Mash', 'Savory Gravy'],
+    preparedBy: 'Auntie Lindiwe (Pietermaritzburg)',
+    availableToCook: 'Yes',
+    contactDetails: '+27 76 432 1098',
+    dayRate: 'R1,450 / day',
+  },
+
+  // Traditional South African Cuisine
+  {
+    id: 'preset-sa-1',
+    title: 'Cape Malay Bobotie & Fragrant Geelrys',
+    category: 'Traditional South African',
+    accompaniments: ['Cape Yellow Rice with Raisins', 'Traditional Baked Beef Bobotie', 'Mrs Ball’s Chutney', 'Banana & Coconut Sambal'],
+    preparedBy: 'Auntie Fatima (Bo-Kaap)',
+    availableToCook: 'Yes',
+    contactDetails: '+27 83 234 5678',
+    dayRate: 'R1,800 / day',
+  },
+  {
+    id: 'preset-sa-2',
+    title: 'Tender Oxtail Potjiekos & Fluffy Dombolo',
+    category: 'Traditional South African',
+    accompaniments: ['Steamed Dombolo (Dumplings)', 'Slow Simmered Oxtail Potjie', 'Baby Potatoes & Baby Carrots', 'Rich Red Wine Jus'],
+    preparedBy: 'Chef Sipho (Soweto)',
+    availableToCook: 'Yes',
+    contactDetails: '+27 71 889 0123',
+    dayRate: 'R2,000 / day',
+  },
+  {
+    id: 'preset-sa-3',
+    title: 'Traditional Mogodu (Tripe) & Stiff White Pap',
+    category: 'Traditional South African',
+    accompaniments: ['Stiff White Pap', 'Slow Braised Mogodu (Beef Tripe)', 'Spicy Chakalaka', 'Morogo (Braised African Greens)'],
+    preparedBy: 'Mama Joyce (Tembisa)',
+    availableToCook: 'Yes',
+    contactDetails: '+27 82 667 8901',
+    dayRate: 'R1,300 / day',
+  },
+  {
+    id: 'preset-sa-4',
+    title: 'Cape Dutch Tomato Bredie & Basmati Rice',
+    category: 'Traditional South African',
+    accompaniments: ['Steamed Basmati Rice', 'Slow Simmered Lamb Tomato Bredie', 'Steamed Green Beans with Potatoes', 'Sweet Beetroot Salad'],
+    preparedBy: 'Chef Johan (Stellenbosch)',
+    availableToCook: 'Yes',
+    contactDetails: '+27 82 112 3344',
+    dayRate: 'R1,750 / day',
+  },
+  {
+    id: 'preset-sa-5',
+    title: 'Waterblommetjiebredie & Steamed Rice',
+    category: 'Traditional South African',
+    accompaniments: ['Steamed White Rice', 'Traditional Cape Waterblommetjie & Lamb Bredie', 'Pickled Beetroot Slices', 'Sweet Potato Mash'],
+    preparedBy: 'Tannie Ansie (Paarl)',
+    availableToCook: 'No',
+    contactDetails: '+27 84 990 8877',
+    dayRate: 'R1,600 / day',
+  },
+  {
+    id: 'preset-sa-6',
+    title: 'Golden Vetkoek (Amagwinya) & Curried Mince',
+    category: 'Traditional South African',
+    accompaniments: ['Crispy Golden Vetkoek (Amagwinya)', 'Savory Curried Beef Mince', 'Mrs Ball’s Fruit Chutney', 'Grated Cheddar Cheese'],
+    preparedBy: 'Magwinya Queen "Pinky"',
+    availableToCook: 'Yes',
+    contactDetails: '+27 79 334 5566',
+    dayRate: 'R950 / day',
+  },
+  {
+    id: 'preset-sa-7',
+    title: 'Karoo Lamb Potjie & Fire-Roasted Roosterkoek',
+    category: 'Traditional South African',
+    accompaniments: ['Fire-Roasted Roosterkoek', 'Karoo Lamb & Vegetable Potjiekos', 'Apricot Jam & Butter', 'Roasted Pumpkin'],
+    preparedBy: 'Oom Willem (Graaff-Reinet)',
+    availableToCook: 'Yes',
+    contactDetails: '+27 83 778 9900',
+    dayRate: 'R1,900 / day',
+  },
+  {
+    id: 'preset-sa-8',
+    title: 'Traditional Cape Smoorsnoek & Sweet Potatoes',
+    category: 'Traditional South African',
+    accompaniments: ['Fluffy White Rice', 'Traditional Cape Smoorsnoek', 'Boiled Sweet Potatoes', 'Apricot Jam Glaze'],
+    preparedBy: 'Uncle Rashid (Kalk Bay)',
+    availableToCook: 'Yes',
+    contactDetails: '+27 82 445 6677',
+    dayRate: 'R1,500 / day',
+  },
+
   // Curries & Stews
   {
     id: 'preset-1',

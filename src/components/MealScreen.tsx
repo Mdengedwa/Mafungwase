@@ -31,7 +31,7 @@ import {
   PresetSuggestion,
 } from '../data/defaultPresetSuggestions';
 
-const LOCAL_STORAGE_KEY = 'mafungwase_dish_presets_v2';
+const LOCAL_STORAGE_KEY = 'mafungwase_dish_presets_v3';
 
 interface MealScreenProps {
   currentMeal: Meal;
