@@ -29,6 +29,9 @@ import {
 } from '../data/defaultPresetSuggestions';
 import { HireChefModal } from './HireChefModal';
 import { ManagerInquiryModal } from './ManagerInquiryModal';
+import { ManagerPasswordModal } from './ManagerPasswordModal';
+import { ConfirmDeleteModal } from './ConfirmDeleteModal';
+import feastBg from '../assets/images/delicious_feast_bg_1786711697332.jpg';
 
 interface HomeScreenProps {
   dishName: string;
@@ -62,13 +65,29 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   });
 
   const toggleManagerMode = () => {
-    const nextMode = !isManagerMode;
-    setIsManagerMode(nextMode);
+    if (isManagerMode) {
+      // Turn off directly
+      setIsManagerMode(false);
+      try {
+        localStorage.setItem(MANAGER_MODE_STORAGE_KEY, 'false');
+      } catch (e) {
+        console.error('Failed to save manager mode', e);
+      }
+      setToastMessage('App Manager Mode deactivated.');
+    } else {
+      // Require password before enabling
+      setIsPasswordModalOpen(true);
+    }
+  };
+
+  const handlePasswordSuccess = () => {
+    setIsManagerMode(true);
     try {
-      localStorage.setItem(MANAGER_MODE_STORAGE_KEY, String(nextMode));
+      localStorage.setItem(MANAGER_MODE_STORAGE_KEY, 'true');
     } catch (e) {
       console.error('Failed to save manager mode', e);
     }
+    setToastMessage('✓ App Manager Mode activated successfully!');
   };
 
   // Booking Inquiries State
@@ -127,6 +146,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   const [isHireModalOpen, setIsHireModalOpen] = useState(false);
   const [hirePreset, setHirePreset] = useState<PresetSuggestion | null>(null);
   const [isManagerInboxOpen, setIsManagerInboxOpen] = useState(false);
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // Auto-hide toast
@@ -191,6 +211,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
   const [editingPreset, setEditingPreset] = useState<PresetSuggestion | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<PresetSuggestion | null>(null);
+  const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
+  const [inquiryToDeleteId, setInquiryToDeleteId] = useState<string | null>(null);
 
   // Form State for Add / Edit Preset (including 4 requested fields)
   const [formTitle, setFormTitle] = useState('');
@@ -328,9 +351,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
   // Delete Inquiry
   const handleDeleteInquiry = (id: string) => {
-    if (confirm('Delete this booking inquiry record?')) {
-      setInquiries((prev) => prev.filter((i) => i.id !== id));
-    }
+    setInquiries((prev) => prev.filter((i) => i.id !== id));
+    setToastMessage('✓ Booking inquiry record removed.');
   };
 
   // Save Add or Edit Preset
@@ -401,25 +423,49 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     }, 50);
   };
 
-  // Delete Preset
-  const handleDeletePreset = (id: string, e: React.MouseEvent) => {
+  // Delete Preset Handler
+  const handleDeletePresetClick = (preset: PresetSuggestion, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (confirm('Are you sure you want to remove this dish suggestion?')) {
-      setPresets((prev) => prev.filter((p) => p.id !== id));
-    }
+    setDeleteTarget(preset);
+  };
+
+  const confirmDeletePreset = () => {
+    if (!deleteTarget) return;
+    const targetTitle = deleteTarget.title;
+    const targetId = deleteTarget.id;
+
+    setPresets((prev) => {
+      const updated = prev.filter((p) => p.id !== targetId);
+      try {
+        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updated));
+        localStorage.removeItem('mafungwase_dish_presets_v2');
+      } catch (e) {
+        console.error('Failed to save presets:', e);
+      }
+      return updated;
+    });
+
+    setToastMessage(`✓ Entry "${targetTitle}" successfully removed.`);
+    setDeleteTarget(null);
+    window.dispatchEvent(new Event('recipes_updated'));
   };
 
   // Reset to Default Suggestions
-  const handleResetDefaults = () => {
-    if (
-      confirm(
-        'Reset preset suggestions back to the default catering menu suggestions?'
-      )
-    ) {
-      setPresets(DEFAULT_PRESET_SUGGESTIONS);
-      localStorage.removeItem(LOCAL_STORAGE_KEY);
-      setToastMessage('Reset to default catering recipes.');
+  const handleResetDefaultsClick = () => {
+    setIsResetConfirmOpen(true);
+  };
+
+  const confirmResetDefaults = () => {
+    setPresets(DEFAULT_PRESET_SUGGESTIONS);
+    try {
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(DEFAULT_PRESET_SUGGESTIONS));
+      localStorage.removeItem('mafungwase_dish_presets_v2');
+    } catch (e) {
+      console.error('Failed to reset defaults:', e);
     }
+    setToastMessage('✓ Reset to default catering recipes.');
+    setIsResetConfirmOpen(false);
+    window.dispatchEvent(new Event('recipes_updated'));
   };
 
   // Bulk Import Suggestions
@@ -483,17 +529,20 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       )}
 
       {/* Hero Dish Setup Banner */}
-      <div className="bg-gradient-to-br from-white to-stone-50 rounded-3xl p-6 sm:p-8 border-2 border-black shadow-sm space-y-6">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-stone-200">
+      <div
+        style={{ backgroundColor: '#fbf304' }}
+        className="rounded-3xl p-6 sm:p-8 border-2 border-black shadow-md space-y-6"
+      >
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b-2 border-black/15">
           <div className="space-y-1">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-emerald-100 text-emerald-900 border border-emerald-300">
-              <ChefHat className="w-3.5 h-3.5 text-emerald-700" />
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-black text-[#fbf304] border border-black shadow-xs">
+              <ChefHat className="w-3.5 h-3.5 text-[#fbf304]" />
               Step 1 of 4 • Recipe & Menu Setup
             </span>
-            <h1 className="text-2xl sm:text-3xl font-black text-stone-900 tracking-tight">
+            <h1 className="text-2xl sm:text-3xl font-black text-black tracking-tight drop-shadow-xs">
               Catering Dish & Accompaniment Builder
             </h1>
-            <p className="text-xs sm:text-sm text-stone-600 font-medium">
+            <p className="text-xs sm:text-sm text-stone-900 font-bold">
               Cost individual accompaniments, hire authentic local cooks for events, and assemble precise client quotes.
             </p>
           </div>
@@ -503,22 +552,22 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             <button
               type="button"
               onClick={toggleManagerMode}
-              className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-2xl text-xs font-black transition-all cursor-pointer border ${
+              className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-2xl text-xs font-black transition-all cursor-pointer border-2 ${
                 isManagerMode
-                  ? 'bg-amber-500 text-stone-950 border-amber-600 shadow-md ring-2 ring-amber-400/40'
-                  : 'bg-stone-100 text-stone-700 hover:bg-stone-200 border-stone-300'
+                  ? 'bg-black text-[#fbf304] border-black shadow-md ring-2 ring-black/20'
+                  : 'bg-white text-stone-950 hover:bg-stone-100 border-black shadow-xs'
               }`}
               title="Toggle App Manager mode to view full contact numbers and manage booking inquiries"
             >
               {isManagerMode ? (
                 <>
-                  <ShieldCheck className="w-4 h-4 text-stone-950" />
+                  <ShieldCheck className="w-4 h-4 text-[#fbf304]" />
                   <span>App Manager Mode: ON</span>
-                  <span className="w-2 h-2 rounded-full bg-emerald-900 animate-ping"></span>
+                  <span className="w-2 h-2 rounded-full bg-[#fbf304] animate-ping"></span>
                 </>
               ) : (
                 <>
-                  <Shield className="w-4 h-4 text-stone-500" />
+                  <Shield className="w-4 h-4 text-stone-700" />
                   <span>Manager Mode (Off)</span>
                 </>
               )}
@@ -548,14 +597,14 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
         {/* Manager Mode Banner */}
         {isManagerMode && (
-          <div className="p-3 bg-amber-50 rounded-2xl border border-amber-300/80 flex items-center justify-between gap-3 text-xs text-amber-950 animate-in fade-in duration-200">
+          <div className="p-3.5 bg-black/90 text-white rounded-2xl border-2 border-black flex items-center justify-between gap-3 text-xs shadow-md animate-in fade-in duration-200">
             <div className="flex items-center gap-2.5">
-              <ShieldCheck className="w-5 h-5 text-amber-700 shrink-0" />
+              <ShieldCheck className="w-5 h-5 text-[#fbf304] shrink-0" />
               <div>
-                <span className="font-extrabold block">
+                <span className="font-black text-[#fbf304] block">
                   🛡️ App Manager Mode Active
                 </span>
-                <span className="text-[11px] text-amber-900/80 font-medium">
+                <span className="text-[11px] text-stone-200 font-medium">
                   Full unmasked phone numbers, email details, and client booking requests are unlocked.
                 </span>
               </div>
@@ -563,7 +612,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             <button
               type="button"
               onClick={() => setIsManagerInboxOpen(true)}
-              className="px-3 py-1 text-[11px] font-black text-amber-950 bg-amber-200 hover:bg-amber-300 border border-amber-400 rounded-xl transition-colors cursor-pointer shrink-0"
+              className="px-3 py-1 text-[11px] font-black text-black bg-[#fbf304] hover:bg-yellow-300 border border-black rounded-xl transition-colors cursor-pointer shrink-0"
             >
               Open Inbox ({inquiries.length})
             </button>
@@ -572,7 +621,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
         {/* Main Dish Name Input */}
         <div className="space-y-2">
-          <label className="block text-xs font-extrabold text-stone-800 uppercase tracking-wider">
+          <label className="block text-xs font-black text-black uppercase tracking-wider">
             Main Dish / Event Menu Title
           </label>
           <div className="relative">
@@ -581,15 +630,15 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               value={dishName}
               onChange={(e) => setDishName(e.target.value)}
               placeholder="e.g. Traditional Durban Curry Platter or Inyama Yenhloko Feast"
-              className="w-full text-base sm:text-lg font-black text-stone-900 bg-white border-2 border-stone-300 rounded-2xl px-4 py-3.5 focus:border-emerald-700 focus:outline-none shadow-2xs transition-all placeholder:text-stone-300"
+              className="w-full text-base sm:text-lg font-black text-black bg-white border-2 border-black rounded-2xl px-4 py-3.5 focus:border-black focus:ring-4 focus:ring-black/15 focus:outline-none shadow-md transition-all placeholder:text-stone-400"
             />
             {dishName && (
               <button
                 type="button"
                 onClick={() => setDishName('')}
-                className="absolute right-3.5 top-4 text-stone-400 hover:text-stone-600 cursor-pointer"
+                className="absolute right-3.5 top-4 text-stone-500 hover:text-black cursor-pointer p-1"
               >
-                <X className="w-4 h-4" />
+                <X className="w-4 h-4 stroke-[3]" />
               </button>
             )}
           </div>
@@ -597,11 +646,11 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
         {/* Accompaniments Setup Section */}
         <div className="space-y-3 pt-2">
-          <div className="flex items-center justify-between">
-            <label className="block text-xs font-extrabold text-stone-800 uppercase tracking-wider">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+            <label className="block text-xs font-black text-black uppercase tracking-wider">
               Selected Accompaniments & Side Dishes ({accompanimentNames.length})
             </label>
-            <span className="text-[11px] font-bold text-stone-500">
+            <span className="text-[11px] font-bold text-stone-900">
               Each side dish receives its own dedicated costing calculator in Step 2
             </span>
           </div>
@@ -613,14 +662,14 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               value={newAccInput}
               onChange={(e) => setNewAccInput(e.target.value)}
               placeholder="Add accompaniment (e.g. Steamed Dombolo, Spicy Chakalaka, Yellow Rice)..."
-              className="flex-1 text-xs font-bold text-stone-900 bg-white border border-stone-300 rounded-xl px-3.5 py-2.5 focus:border-emerald-700 focus:outline-none placeholder:text-stone-400"
+              className="flex-1 text-xs font-bold text-black bg-white border-2 border-black rounded-xl px-3.5 py-2.5 focus:border-black focus:ring-2 focus:ring-black/15 focus:outline-none placeholder:text-stone-500 shadow-sm"
             />
             <button
               type="submit"
               disabled={!newAccInput.trim()}
-              className="inline-flex items-center gap-1.5 px-4 py-2.5 text-xs font-extrabold text-white bg-emerald-800 hover:bg-emerald-900 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl transition-all shadow-2xs shrink-0 cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-5 py-2.5 text-xs font-black text-white bg-black hover:bg-stone-800 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl transition-all shadow-md shrink-0 cursor-pointer"
             >
-              <Plus className="w-3.5 h-3.5" />
+              <Plus className="w-3.5 h-3.5 stroke-[3]" />
               <span>Add Item</span>
             </button>
           </form>
@@ -630,15 +679,15 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             {accompanimentNames.map((name, index) => (
               <span
                 key={`${name}-${index}`}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold bg-emerald-50 text-emerald-950 border border-emerald-300 rounded-xl shadow-2xs"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-black bg-white text-stone-950 border-2 border-black rounded-xl shadow-xs"
               >
                 <span>{name}</span>
                 <button
                   type="button"
                   onClick={() => handleRemoveAccompaniment(index)}
-                  className="p-0.5 text-emerald-800 hover:text-red-600 rounded-md hover:bg-emerald-100 transition-colors cursor-pointer"
+                  className="p-0.5 text-stone-500 hover:text-red-600 rounded-md hover:bg-stone-100 transition-colors cursor-pointer"
                 >
-                  <X className="w-3 h-3" />
+                  <X className="w-3 h-3 stroke-[2.5]" />
                 </button>
               </span>
             ))}
@@ -646,296 +695,310 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         </div>
       </div>
 
-      {/* Recipe Suggestions Library */}
-      <div className="bg-white rounded-3xl p-6 sm:p-8 border-2 border-black shadow-sm space-y-5">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-stone-200">
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-lg font-black text-stone-900">
-                Recipe Library & Catering Menus
-              </h2>
-              <span className="px-2 py-0.5 text-[10px] font-black rounded-full bg-emerald-100 text-emerald-900 border border-emerald-300">
-                {presets.length} Menus
-              </span>
+      {/* Recipe Suggestions Library with Delicious Feast Image Background */}
+      <div className="relative overflow-hidden rounded-3xl p-6 sm:p-8 border-2 border-black shadow-xl space-y-6">
+        {/* Delicious Meal Background Image */}
+        <img
+          src={feastBg}
+          alt="Delicious catering meal spread"
+          referrerPolicy="no-referrer"
+          className="absolute inset-0 w-full h-full object-cover pointer-events-none scale-105 filter brightness-[0.92] contrast-[1.05]"
+        />
+
+        {/* Sophisticated Rich Contrast Overlay */}
+        <div className="absolute inset-0 bg-gradient-to-b from-stone-950/90 via-stone-900/80 to-stone-950/92 backdrop-blur-[2px] pointer-events-none" />
+
+        {/* Inner Content Layer */}
+        <div className="relative z-10 space-y-5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-stone-700/70">
+            <div>
+              <div className="flex items-center gap-2.5">
+                <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight drop-shadow-md">
+                  Recipe Library & Catering Menus
+                </h2>
+                <span className="px-2.5 py-0.5 text-[11px] font-black rounded-full bg-amber-400 text-stone-950 shadow-md border border-amber-300">
+                  {presets.length} Menus
+                </span>
+              </div>
+              <p className="text-xs text-stone-200 font-medium mt-1 drop-shadow-sm">
+                Select any dish suggestion to load its accompaniments, or hire experienced local cooks for weddings and parties.
+              </p>
             </div>
-            <p className="text-[11px] text-stone-500 mt-0.5">
-              Select any dish suggestion to load its accompaniments, or hire experienced local cooks for weddings and parties.
-            </p>
-          </div>
 
-          <div className="flex items-center gap-2 flex-wrap">
-            <button
-              type="button"
-              onClick={openAddModal}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-extrabold text-white bg-emerald-800 hover:bg-emerald-900 rounded-xl transition-all shadow-2xs cursor-pointer"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              Add Recipe
-            </button>
-            <button
-              type="button"
-              onClick={() => setIsBulkModalOpen(true)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-extrabold text-stone-700 bg-stone-100 hover:bg-stone-200 border border-stone-300 rounded-xl transition-all cursor-pointer"
-              title="Bulk import or paste recipes"
-            >
-              <Upload className="w-3.5 h-3.5 text-stone-600" />
-              Import
-            </button>
-            <button
-              type="button"
-              onClick={handleResetDefaults}
-              className="p-1.5 text-stone-400 hover:text-stone-700 hover:bg-stone-100 rounded-xl transition-colors cursor-pointer"
-              title="Reset to default catering recipes"
-            >
-              <RotateCcw className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        </div>
-
-        {/* Search & Category Filter Bar */}
-        <div className="space-y-3">
-          <div className="relative">
-            <Search className="w-4 h-4 absolute left-3.5 top-3 text-stone-400" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search recipes, Zulu cuisine, chefs, or ingredients (e.g. Inyama, Dombolo, Curry, Bobotie)..."
-              className="w-full pl-10 pr-4 py-2.5 text-xs border border-stone-200 rounded-xl focus:outline-none focus:border-emerald-600 bg-stone-50/50 font-medium"
-            />
-            {searchQuery && (
+            <div className="flex items-center gap-2 flex-wrap">
               <button
                 type="button"
-                onClick={() => setSearchQuery('')}
-                className="absolute right-3 top-2.5 text-stone-400 hover:text-stone-600 p-0.5 cursor-pointer"
+                onClick={openAddModal}
+                className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-black text-emerald-950 bg-amber-400 hover:bg-amber-300 rounded-xl transition-all shadow-md cursor-pointer"
               >
-                <X className="w-3.5 h-3.5" />
+                <Plus className="w-3.5 h-3.5 stroke-[3]" />
+                Add Recipe
               </button>
-            )}
+              <button
+                type="button"
+                onClick={() => setIsBulkModalOpen(true)}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-stone-100 bg-white/15 hover:bg-white/25 border border-white/30 backdrop-blur-md rounded-xl transition-all cursor-pointer shadow-sm"
+                title="Bulk import or paste recipes"
+              >
+                <Upload className="w-3.5 h-3.5 text-stone-200" />
+                Import
+              </button>
+              <button
+                type="button"
+                onClick={handleResetDefaults}
+                className="p-2 text-stone-300 hover:text-white hover:bg-white/20 rounded-xl transition-colors cursor-pointer border border-transparent hover:border-white/20"
+                title="Reset to default catering recipes"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+              </button>
+            </div>
           </div>
 
-          {/* Category Chips */}
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
-            {categories.map((cat) => {
-              const count =
-                cat === 'All'
-                  ? presets.length
-                  : presets.filter((p) => p.category === cat).length;
-              const isActive = selectedCategory === cat;
-
-              return (
+          {/* Search & Category Filter Bar */}
+          <div className="space-y-3">
+            <div className="relative">
+              <Search className="w-4 h-4 absolute left-3.5 top-3 text-stone-400" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search recipes, Zulu cuisine, chefs, or ingredients (e.g. Inyama, Dombolo, Curry, Bobotie)..."
+                className="w-full pl-10 pr-4 py-2.5 text-xs border border-white/40 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-400 bg-white/95 text-stone-900 placeholder:text-stone-500 font-semibold shadow-md backdrop-blur-sm"
+              />
+              {searchQuery && (
                 <button
-                  key={cat}
                   type="button"
-                  onClick={() => {
-                    setSelectedCategory(cat);
-                    setDisplayLimit(12);
-                  }}
-                  className={`px-3 py-1.5 rounded-xl font-bold whitespace-nowrap transition-all text-[11px] flex items-center gap-1 cursor-pointer ${
-                    isActive
-                      ? 'bg-emerald-800 text-white shadow-xs'
-                      : 'bg-stone-100/80 hover:bg-stone-200/80 text-stone-600 border border-stone-200/60'
-                  }`}
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-3 top-2.5 text-stone-400 hover:text-stone-700 p-0.5 cursor-pointer"
                 >
-                  <span>{cat}</span>
-                  <span
-                    className={`text-[9px] px-1.5 py-0.2 rounded-full font-black ${
-                      isActive
-                        ? 'bg-emerald-700 text-emerald-100'
-                        : 'bg-stone-200 text-stone-600'
-                    }`}
-                  >
-                    {count}
-                  </span>
+                  <X className="w-3.5 h-3.5" />
                 </button>
-              );
-            })}
-          </div>
-        </div>
+              )}
+            </div>
 
-        {/* Presets Grid */}
-        {filteredPresets.length > 0 ? (
-          <>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
-              {filteredPresets.slice(0, displayLimit).map((p) => {
-                const isSelected =
-                  selectedPresetId === p.id ||
-                  (dishName === p.title &&
-                    accompanimentNames.length > 0 &&
-                    accompanimentNames.every((acc) =>
-                      p.accompaniments.includes(acc)
-                    ));
-
-                const isAvailable = p.availableToCook === 'Yes' || p.availableToCook === undefined;
+            {/* Category Chips */}
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs scrollbar-none">
+              {categories.map((cat) => {
+                const count =
+                  cat === 'All'
+                    ? presets.length
+                    : presets.filter((p) => p.category === cat).length;
+                const isActive = selectedCategory === cat;
 
                 return (
-                  <div
-                    key={p.id}
-                    onClick={() => handleLoadPreset(p)}
-                    className={`group relative text-left p-4 rounded-2xl transition-all cursor-pointer flex flex-col justify-between border-2 ${
-                      isSelected
-                        ? 'bg-emerald-50/90 border-emerald-800 ring-4 ring-emerald-500/20 shadow-md scale-[1.01]'
-                        : 'bg-white hover:bg-emerald-50/50 border-black shadow-2xs hover:shadow-md'
+                  <button
+                    key={cat}
+                    type="button"
+                    onClick={() => {
+                      setSelectedCategory(cat);
+                      setDisplayLimit(12);
+                    }}
+                    className={`px-3 py-1.5 rounded-xl font-bold whitespace-nowrap transition-all text-[11px] flex items-center gap-1.5 cursor-pointer ${
+                      isActive
+                        ? 'bg-amber-400 text-stone-950 font-black shadow-md border border-amber-300'
+                        : 'bg-stone-900/80 hover:bg-stone-800 text-stone-200 border border-stone-700/80 backdrop-blur-sm shadow-xs'
                     }`}
                   >
-                    <div className="space-y-2">
-                      {/* Card Header */}
-                      <div className="flex items-start justify-between gap-2">
-                        <div
-                          className={`text-xs font-black transition-colors line-clamp-2 pr-6 ${
-                            isSelected
-                              ? 'text-emerald-950'
-                              : 'text-stone-900 group-hover:text-emerald-950'
-                          }`}
-                        >
-                          {p.title}
-                        </div>
-
-                        {isSelected && (
-                          <span className="absolute right-2.5 top-2.5 px-2 py-0.5 text-[9px] font-black text-white bg-emerald-800 border border-emerald-900 rounded-full flex items-center gap-1 shadow-2xs">
-                            <Check className="w-3 h-3 text-white" /> ACTIVE
-                          </span>
-                        )}
-
-                        <div
-                          className={`absolute ${
-                            isSelected ? 'right-16' : 'right-3'
-                          } top-3 flex items-center gap-1 ${
-                            isManagerMode ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
-                          } transition-opacity`}
-                        >
-                          <button
-                            type="button"
-                            onClick={(e) => openEditModal(p, e)}
-                            className="p-1 text-stone-500 hover:text-emerald-800 hover:bg-emerald-200/60 rounded-md transition-colors cursor-pointer"
-                            title="Edit Recipe"
-                          >
-                            <Edit2 className="w-3 h-3" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={(e) => handleDeletePreset(p.id, e)}
-                            className="p-1 text-stone-400 hover:text-red-600 hover:bg-red-100/60 rounded-md transition-colors cursor-pointer"
-                            title={isManagerMode ? 'Delete Recipe (Manager)' : 'Delete Recipe'}
-                          >
-                            <Trash2 className="w-3 h-3" />
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Category & Chef Badges */}
-                      <div className="flex items-center gap-1.5 flex-wrap text-[10px]">
-                        <span className="font-extrabold text-emerald-800 uppercase tracking-wider bg-emerald-100/70 px-2 py-0.5 rounded-md">
-                          {p.category}
-                        </span>
-
-                        {p.preparedBy && (
-                          <span className="inline-flex items-center gap-1 font-bold text-stone-700 bg-stone-100 px-2 py-0.5 rounded-md border border-stone-200">
-                            <ChefHat className="w-3 h-3 text-emerald-700" />
-                            <span>{p.preparedBy}</span>
-                          </span>
-                        )}
-                      </div>
-
-                      {/* Availability & Day Rate Pill */}
-                      <div className="flex items-center justify-between gap-1.5 text-[10px] pt-0.5">
-                        {isAvailable ? (
-                          <span className="inline-flex items-center gap-1 font-extrabold text-emerald-900 bg-emerald-100/80 px-2 py-0.5 rounded-lg border border-emerald-300">
-                            <UserCheck className="w-3 h-3 text-emerald-700" />
-                            <span>Available for Hire</span>
-                            {p.dayRate && (
-                              <span className="font-black text-emerald-950">• {p.dayRate}</span>
-                            )}
-                          </span>
-                        ) : (
-                          <span className="font-bold text-stone-500 bg-stone-100 px-2 py-0.5 rounded-lg">
-                            Recipe Shared Only
-                          </span>
-                        )}
-                      </div>
-
-                      {/* Contact Details (Visible to App Manager Mode ONLY) */}
-                      {p.contactDetails && (
-                        <div className="text-[10px] font-semibold">
-                          {isManagerMode ? (
-                            <div className="flex items-center justify-between gap-1 p-1.5 bg-amber-50 rounded-lg border border-amber-300 text-amber-950 font-bold">
-                              <span className="flex items-center gap-1">
-                                <Phone className="w-3 h-3 text-amber-700" />
-                                <span>{p.contactDetails}</span>
-                              </span>
-                              <span className="text-[9px] text-amber-800 uppercase font-extrabold">
-                                [Manager View]
-                              </span>
-                            </div>
-                          ) : (
-                            <div className="flex items-center gap-1 text-stone-400 text-[10px] italic">
-                              <Lock className="w-2.5 h-2.5 text-stone-400" />
-                              <span>Contact details visible to Admin only</span>
-                            </div>
-                          )}
-                        </div>
-                      )}
-
-                      {/* Accompaniments List */}
-                      <p className="text-[11px] text-stone-600 font-medium line-clamp-3 leading-snug pt-1">
-                        {p.accompaniments.join(', ')}
-                      </p>
-                    </div>
-
-                    {/* Bottom Action Section */}
-                    <div className="mt-3.5 pt-2.5 border-t border-stone-200 space-y-2">
-                      <div className="flex items-center justify-between text-[10px] text-emerald-800 font-extrabold">
-                        <span>{p.accompaniments.length} Accompaniments</span>
-                        <span className="group-hover:translate-x-0.5 transition-transform flex items-center gap-0.5 text-emerald-800 font-black">
-                          {isSelected ? 'Loaded ✓' : 'Load Menu \u2192'}
-                        </span>
-                      </div>
-
-                      {/* Hire / Leave Message Button */}
-                      <button
-                        type="button"
-                        onClick={(e) => openHireModal(p, e)}
-                        className="w-full inline-flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-xl text-[11px] font-black text-emerald-950 bg-emerald-100/90 hover:bg-emerald-200 border border-emerald-300/90 transition-all shadow-2xs cursor-pointer group-hover:border-emerald-500"
-                      >
-                        <MessageSquare className="w-3 h-3 text-emerald-800" />
-                        <span>Hire Cook / Leave Message</span>
-                      </button>
-                    </div>
-                  </div>
+                    <span>{cat}</span>
+                    <span
+                      className={`text-[9px] px-1.5 py-0.2 rounded-full font-black ${
+                        isActive
+                          ? 'bg-stone-950 text-amber-300'
+                          : 'bg-stone-800 text-stone-300'
+                      }`}
+                    >
+                      {count}
+                    </span>
+                  </button>
                 );
               })}
             </div>
-
-            {/* Load More Button */}
-            {filteredPresets.length > displayLimit && (
-              <div className="text-center pt-2">
-                <button
-                  type="button"
-                  onClick={() => setDisplayLimit((prev) => prev + 12)}
-                  className="inline-flex items-center gap-1.5 px-5 py-2 text-xs font-extrabold text-emerald-900 bg-emerald-100/60 hover:bg-emerald-100 border border-emerald-300/80 rounded-2xl transition-all shadow-2xs cursor-pointer"
-                >
-                  <span>Show More Recipes ({filteredPresets.length - displayLimit} remaining)</span>
-                  <ChevronDown className="w-4 h-4 text-emerald-800" />
-                </button>
-              </div>
-            )}
-          </>
-        ) : (
-          <div className="p-8 text-center bg-stone-50 border border-dashed border-stone-200 rounded-2xl text-stone-500">
-            <p className="text-xs font-bold text-stone-700">No recipes found.</p>
-            <p className="text-[11px] text-stone-400 mt-1 mb-3">
-              Try adjusting your search query or add a new custom recipe!
-            </p>
-            <button
-              type="button"
-              onClick={openAddModal}
-              className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-extrabold text-white bg-emerald-800 hover:bg-emerald-900 rounded-xl transition-all cursor-pointer"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              Add Custom Recipe
-            </button>
           </div>
-        )}
+
+          {/* Presets Grid */}
+          {filteredPresets.length > 0 ? (
+            <>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+                {filteredPresets.slice(0, displayLimit).map((p) => {
+                  const isSelected =
+                    selectedPresetId === p.id ||
+                    (dishName === p.title &&
+                      accompanimentNames.length > 0 &&
+                      accompanimentNames.every((acc) =>
+                        p.accompaniments.includes(acc)
+                      ));
+
+                  const isAvailable = p.availableToCook === 'Yes' || p.availableToCook === undefined;
+
+                  return (
+                    <div
+                      key={p.id}
+                      onClick={() => handleLoadPreset(p)}
+                      className={`group relative text-left p-4 rounded-2xl transition-all cursor-pointer flex flex-col justify-between border-2 ${
+                        isSelected
+                          ? 'bg-emerald-50 border-emerald-800 ring-4 ring-emerald-400/40 shadow-xl scale-[1.01]'
+                          : 'bg-white hover:bg-emerald-50/40 border-stone-800/80 shadow-md hover:shadow-2xl'
+                      }`}
+                    >
+                      <div className="space-y-2">
+                        {/* Card Header */}
+                        <div className="flex items-start justify-between gap-2">
+                          <div
+                            className={`text-xs font-black transition-colors line-clamp-2 pr-6 ${
+                              isSelected
+                                ? 'text-emerald-950'
+                                : 'text-stone-900 group-hover:text-emerald-950'
+                            }`}
+                          >
+                            {p.title}
+                          </div>
+
+                          {isSelected && (
+                            <span className="absolute right-2.5 top-2.5 px-2 py-0.5 text-[9px] font-black text-white bg-emerald-800 border border-emerald-900 rounded-full flex items-center gap-1 shadow-2xs">
+                              <Check className="w-3 h-3 text-white" /> ACTIVE
+                            </span>
+                          )}
+
+                          <div
+                            className={`absolute ${
+                              isSelected ? 'right-16' : 'right-3'
+                            } top-3 flex items-center gap-1 ${
+                              isManagerMode ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                            } transition-opacity bg-white/90 p-0.5 rounded-lg border border-stone-200 shadow-2xs`}
+                          >
+                            <button
+                              type="button"
+                              onClick={(e) => openEditModal(p, e)}
+                              className="p-1 text-stone-500 hover:text-emerald-800 hover:bg-emerald-100 rounded-md transition-colors cursor-pointer"
+                              title="Edit Recipe"
+                            >
+                              <Edit2 className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => handleDeletePresetClick(p, e)}
+                              className="p-1 text-rose-500 hover:text-rose-700 hover:bg-rose-100 rounded-md transition-colors cursor-pointer"
+                              title={isManagerMode ? 'Delete Recipe (Admin Mode)' : 'Delete Recipe'}
+                            >
+                              <Trash2 className="w-3.5 h-3.5 stroke-[2.5]" />
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Category & Chef Badges */}
+                        <div className="flex items-center gap-1.5 flex-wrap text-[10px]">
+                          <span className="font-extrabold text-emerald-800 uppercase tracking-wider bg-emerald-100/80 px-2 py-0.5 rounded-md border border-emerald-200">
+                            {p.category}
+                          </span>
+
+                          {p.preparedBy && (
+                            <span className="inline-flex items-center gap-1 font-bold text-stone-700 bg-stone-100 px-2 py-0.5 rounded-md border border-stone-200">
+                              <ChefHat className="w-3 h-3 text-emerald-700" />
+                              <span>{p.preparedBy}</span>
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Availability & Day Rate Pill */}
+                        <div className="flex items-center justify-between gap-1.5 text-[10px] pt-0.5">
+                          {isAvailable ? (
+                            <span className="inline-flex items-center gap-1 font-extrabold text-emerald-900 bg-emerald-100/80 px-2 py-0.5 rounded-lg border border-emerald-300">
+                              <UserCheck className="w-3 h-3 text-emerald-700" />
+                              <span>Available for Hire</span>
+                              {p.dayRate && (
+                                <span className="font-black text-emerald-950">• {p.dayRate}</span>
+                              )}
+                            </span>
+                          ) : (
+                            <span className="font-bold text-stone-500 bg-stone-100 px-2 py-0.5 rounded-lg border border-stone-200">
+                              Recipe Shared Only
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Contact Details (Visible to App Manager Mode ONLY) */}
+                        {p.contactDetails && (
+                          <div className="text-[10px] font-semibold">
+                            {isManagerMode ? (
+                              <div className="flex items-center justify-between gap-1 p-1.5 bg-amber-50 rounded-lg border border-amber-300 text-amber-950 font-bold">
+                                <span className="flex items-center gap-1">
+                                  <Phone className="w-3 h-3 text-amber-700" />
+                                  <span>{p.contactDetails}</span>
+                                </span>
+                                <span className="text-[9px] text-amber-800 uppercase font-extrabold">
+                                  [Manager View]
+                                </span>
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-1 text-stone-400 text-[10px] italic">
+                                <Lock className="w-2.5 h-2.5 text-stone-400" />
+                                <span>Contact details visible to Admin only</span>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Accompaniments List */}
+                        <p className="text-[11px] text-stone-600 font-medium line-clamp-3 leading-snug pt-1">
+                          {p.accompaniments.join(', ')}
+                        </p>
+                      </div>
+
+                      {/* Bottom Action Section */}
+                      <div className="mt-3.5 pt-2.5 border-t border-stone-200 space-y-2">
+                        <div className="flex items-center justify-between text-[10px] text-emerald-800 font-extrabold">
+                          <span>{p.accompaniments.length} Accompaniments</span>
+                          <span className="group-hover:translate-x-0.5 transition-transform flex items-center gap-0.5 text-emerald-800 font-black">
+                            {isSelected ? 'Loaded ✓' : 'Load Menu \u2192'}
+                          </span>
+                        </div>
+
+                        {/* Hire / Leave Message Button */}
+                        <button
+                          type="button"
+                          onClick={(e) => openHireModal(p, e)}
+                          className="w-full inline-flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-xl text-[11px] font-black text-emerald-950 bg-emerald-100/90 hover:bg-emerald-200 border border-emerald-300/90 transition-all shadow-2xs cursor-pointer group-hover:border-emerald-500"
+                        >
+                          <MessageSquare className="w-3 h-3 text-emerald-800" />
+                          <span>Hire Cook / Leave Message</span>
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Load More Button */}
+              {filteredPresets.length > displayLimit && (
+                <div className="text-center pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setDisplayLimit((prev) => prev + 12)}
+                    className="inline-flex items-center gap-1.5 px-6 py-2.5 text-xs font-black text-stone-900 bg-amber-400 hover:bg-amber-300 border border-amber-300 rounded-2xl transition-all shadow-md cursor-pointer"
+                  >
+                    <span>Show More Recipes ({filteredPresets.length - displayLimit} remaining)</span>
+                    <ChevronDown className="w-4 h-4 text-stone-950" />
+                  </button>
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="p-8 text-center bg-stone-900/85 backdrop-blur-md border border-stone-700 rounded-2xl text-stone-300">
+              <p className="text-xs font-bold text-stone-200">No recipes found.</p>
+              <p className="text-[11px] text-stone-400 mt-1 mb-3">
+                Try adjusting your search query or add a new custom recipe!
+              </p>
+              <button
+                type="button"
+                onClick={openAddModal}
+                className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-black text-stone-950 bg-amber-400 hover:bg-amber-300 rounded-xl transition-all cursor-pointer shadow-md"
+              >
+                <Plus className="w-3.5 h-3.5 stroke-[3]" />
+                Add Custom Recipe
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Sticky Bottom Action Bar Card - Always visible throughout scrolling */}
@@ -1261,6 +1324,34 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         inquiries={inquiries}
         onUpdateInquiryStatus={handleUpdateInquiryStatus}
         onDeleteInquiry={handleDeleteInquiry}
+      />
+
+      {/* App Manager Password Authentication Modal */}
+      <ManagerPasswordModal
+        isOpen={isPasswordModalOpen}
+        onClose={() => setIsPasswordModalOpen(false)}
+        onSuccess={handlePasswordSuccess}
+      />
+
+      {/* Delete Entry Confirmation Modal */}
+      <ConfirmDeleteModal
+        isOpen={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={confirmDeletePreset}
+        title="Delete Recipe Suggestion"
+        itemName={deleteTarget?.title}
+        itemCategory={deleteTarget?.category}
+        description="Are you sure you want to remove this recipe from your suggestions catalog? It will be deleted immediately."
+      />
+
+      {/* Reset Defaults Confirmation Modal */}
+      <ConfirmDeleteModal
+        isOpen={isResetConfirmOpen}
+        onClose={() => setIsResetConfirmOpen(false)}
+        onConfirm={confirmResetDefaults}
+        title="Reset to Default Presets"
+        itemName="All Custom Recipes & Suggestions"
+        description="This will restore the standard default catering recipes catalog and remove all added custom entries."
       />
     </div>
   );
