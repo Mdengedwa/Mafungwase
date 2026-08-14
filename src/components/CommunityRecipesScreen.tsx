@@ -28,7 +28,6 @@ import {
 import { HireChefModal } from './HireChefModal';
 import { ManagerInquiryModal } from './ManagerInquiryModal';
 import { ManagerPasswordModal } from './ManagerPasswordModal';
-import { ConfirmDeleteModal } from './ConfirmDeleteModal';
 
 interface CommunityRecipesScreenProps {
   dishName: string;
@@ -171,8 +170,6 @@ export const CommunityRecipesScreen: React.FC<CommunityRecipesScreenProps> = ({
   // Modal State for Add / Edit
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingPreset, setEditingPreset] = useState<PresetSuggestion | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<PresetSuggestion | null>(null);
-  const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
 
   // Form State
   const [formTitle, setFormTitle] = useState('');
@@ -319,49 +316,21 @@ export const CommunityRecipesScreen: React.FC<CommunityRecipesScreenProps> = ({
     onNavigateToDishSetup();
   };
 
-  // Delete Preset Handler
-  const handleDeletePresetClick = (preset: PresetSuggestion, e: React.MouseEvent) => {
+  // Delete Preset
+  const handleDeletePreset = (id: string, title: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    setDeleteTarget(preset);
-  };
-
-  const confirmDeletePreset = () => {
-    if (!deleteTarget) return;
-    const targetTitle = deleteTarget.title;
-    const targetId = deleteTarget.id;
-
-    setPresets((prev) => {
-      const updated = prev.filter((p) => p.id !== targetId);
-      try {
-        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updated));
-        localStorage.removeItem('mafungwase_dish_presets_v2');
-      } catch (e) {
-        console.error('Failed to save presets:', e);
-      }
-      return updated;
-    });
-
-    setToastMessage(`✓ Entry "${targetTitle}" successfully deleted.`);
-    setDeleteTarget(null);
-    window.dispatchEvent(new Event('recipes_updated'));
+    if (confirm(`Are you sure you want to delete the recipe "${title}"?`)) {
+      setPresets((prev) => prev.filter((p) => p.id !== id));
+      setToastMessage(`✓ Recipe "${title}" removed successfully.`);
+    }
   };
 
   // Reset to Defaults (Manager only option)
-  const handleResetDefaultsClick = () => {
-    setIsResetConfirmOpen(true);
-  };
-
-  const confirmResetDefaults = () => {
-    setPresets(DEFAULT_PRESET_SUGGESTIONS);
-    try {
-      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(DEFAULT_PRESET_SUGGESTIONS));
-      localStorage.removeItem('mafungwase_dish_presets_v2');
-    } catch (e) {
-      console.error('Failed to reset presets:', e);
+  const handleResetDefaults = () => {
+    if (confirm('Reset all recipe suggestions back to default recipes?')) {
+      setPresets(DEFAULT_PRESET_SUGGESTIONS);
+      setToastMessage('✓ Reset to default recipes.');
     }
-    setToastMessage('✓ Reset all recipes to default catalog.');
-    setIsResetConfirmOpen(false);
-    window.dispatchEvent(new Event('recipes_updated'));
   };
 
   // Use preset directly in Dish Setup
@@ -427,7 +396,7 @@ export const CommunityRecipesScreen: React.FC<CommunityRecipesScreenProps> = ({
 
             {isManagerMode && (
               <button
-                onClick={handleResetDefaultsClick}
+                onClick={handleResetDefaults}
                 className="inline-flex items-center gap-2 px-4 py-3 rounded-2xl text-xs font-black bg-stone-800 hover:bg-stone-700 text-stone-300 border border-stone-600 shadow-md cursor-pointer transition-all"
                 title="Restore default recipe presets"
               >
@@ -560,22 +529,20 @@ export const CommunityRecipesScreen: React.FC<CommunityRecipesScreenProps> = ({
 
                       {/* Edit & Delete Actions: Always available to Manager, or for custom recipes */}
                       {(isCustom || isManagerMode) && (
-                        <div className="flex items-center gap-1 bg-stone-100/90 px-1.5 py-0.5 rounded-lg border border-stone-200 shadow-2xs">
+                        <div className="flex items-center gap-1">
                           <button
-                            type="button"
                             onClick={(e) => handleOpenEditModal(preset, e)}
                             title="Edit recipe"
-                            className="p-1 text-stone-500 hover:text-stone-900 hover:bg-stone-200/80 rounded-md transition-all cursor-pointer"
+                            className="p-1 text-stone-400 hover:text-stone-700 hover:bg-stone-100 rounded-md transition-all cursor-pointer"
                           >
                             <Edit2 className="w-3.5 h-3.5" />
                           </button>
                           <button
-                            type="button"
-                            onClick={(e) => handleDeletePresetClick(preset, e)}
-                            title={isManagerMode ? "Delete recipe (Admin Mode)" : "Delete recipe"}
-                            className="p-1 text-stone-400 hover:text-rose-600 hover:bg-rose-100 rounded-md transition-all cursor-pointer"
+                            onClick={(e) => handleDeletePreset(preset.id, preset.title, e)}
+                            title={isManagerMode ? "Delete recipe (Manager)" : "Delete recipe"}
+                            className="p-1 text-stone-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-all cursor-pointer"
                           >
-                            <Trash2 className="w-3.5 h-3.5 text-rose-500 hover:text-rose-700" />
+                            <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         </div>
                       )}
@@ -947,27 +914,6 @@ export const CommunityRecipesScreen: React.FC<CommunityRecipesScreenProps> = ({
         isOpen={isPasswordModalOpen}
         onClose={() => setIsPasswordModalOpen(false)}
         onSuccess={handlePasswordSuccess}
-      />
-
-      {/* Delete Entry Confirmation Modal */}
-      <ConfirmDeleteModal
-        isOpen={!!deleteTarget}
-        onClose={() => setDeleteTarget(null)}
-        onConfirm={confirmDeletePreset}
-        title="Delete Recipe Entry"
-        itemName={deleteTarget?.title}
-        itemCategory={deleteTarget?.category}
-        description="Are you sure you want to remove this recipe from the Community Recipe hub? It will be deleted immediately."
-      />
-
-      {/* Reset Defaults Confirmation Modal */}
-      <ConfirmDeleteModal
-        isOpen={isResetConfirmOpen}
-        onClose={() => setIsResetConfirmOpen(false)}
-        onConfirm={confirmResetDefaults}
-        title="Reset to Default Presets"
-        itemName="All Custom Recipes & Edits"
-        description="This will restore the standard default recipes catalog and remove all added custom entries."
       />
     </div>
   );

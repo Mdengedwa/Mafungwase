@@ -30,7 +30,6 @@ import {
 import { HireChefModal } from './HireChefModal';
 import { ManagerInquiryModal } from './ManagerInquiryModal';
 import { ManagerPasswordModal } from './ManagerPasswordModal';
-import { ConfirmDeleteModal } from './ConfirmDeleteModal';
 import feastBg from '../assets/images/delicious_feast_bg_1786711697332.jpg';
 
 interface HomeScreenProps {
@@ -211,9 +210,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
   const [editingPreset, setEditingPreset] = useState<PresetSuggestion | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<PresetSuggestion | null>(null);
-  const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
-  const [inquiryToDeleteId, setInquiryToDeleteId] = useState<string | null>(null);
 
   // Form State for Add / Edit Preset (including 4 requested fields)
   const [formTitle, setFormTitle] = useState('');
@@ -351,8 +347,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
   // Delete Inquiry
   const handleDeleteInquiry = (id: string) => {
-    setInquiries((prev) => prev.filter((i) => i.id !== id));
-    setToastMessage('✓ Booking inquiry record removed.');
+    if (confirm('Delete this booking inquiry record?')) {
+      setInquiries((prev) => prev.filter((i) => i.id !== id));
+    }
   };
 
   // Save Add or Edit Preset
@@ -423,49 +420,25 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     }, 50);
   };
 
-  // Delete Preset Handler
-  const handleDeletePresetClick = (preset: PresetSuggestion, e: React.MouseEvent) => {
+  // Delete Preset
+  const handleDeletePreset = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    setDeleteTarget(preset);
-  };
-
-  const confirmDeletePreset = () => {
-    if (!deleteTarget) return;
-    const targetTitle = deleteTarget.title;
-    const targetId = deleteTarget.id;
-
-    setPresets((prev) => {
-      const updated = prev.filter((p) => p.id !== targetId);
-      try {
-        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updated));
-        localStorage.removeItem('mafungwase_dish_presets_v2');
-      } catch (e) {
-        console.error('Failed to save presets:', e);
-      }
-      return updated;
-    });
-
-    setToastMessage(`✓ Entry "${targetTitle}" successfully removed.`);
-    setDeleteTarget(null);
-    window.dispatchEvent(new Event('recipes_updated'));
+    if (confirm('Are you sure you want to remove this dish suggestion?')) {
+      setPresets((prev) => prev.filter((p) => p.id !== id));
+    }
   };
 
   // Reset to Default Suggestions
-  const handleResetDefaultsClick = () => {
-    setIsResetConfirmOpen(true);
-  };
-
-  const confirmResetDefaults = () => {
-    setPresets(DEFAULT_PRESET_SUGGESTIONS);
-    try {
-      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(DEFAULT_PRESET_SUGGESTIONS));
-      localStorage.removeItem('mafungwase_dish_presets_v2');
-    } catch (e) {
-      console.error('Failed to reset defaults:', e);
+  const handleResetDefaults = () => {
+    if (
+      confirm(
+        'Reset preset suggestions back to the default catering menu suggestions?'
+      )
+    ) {
+      setPresets(DEFAULT_PRESET_SUGGESTIONS);
+      localStorage.removeItem(LOCAL_STORAGE_KEY);
+      setToastMessage('Reset to default catering recipes.');
     }
-    setToastMessage('✓ Reset to default catering recipes.');
-    setIsResetConfirmOpen(false);
-    window.dispatchEvent(new Event('recipes_updated'));
   };
 
   // Bulk Import Suggestions
@@ -530,8 +503,11 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
       {/* Hero Dish Setup Banner */}
       <div
-        style={{ backgroundColor: '#fbf304' }}
-        className="rounded-3xl p-6 sm:p-8 border-2 border-black shadow-md space-y-6"
+        style={{
+          backgroundColor: '#fbf304',
+          fontFamily: "'Futura', 'Futura PT', 'Futura-Medium', 'Futura-Bold', 'Jost', 'Century Gothic', -apple-system, sans-serif",
+        }}
+        className="font-futura rounded-3xl p-6 sm:p-8 border-2 border-black shadow-md space-y-6"
       >
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b-2 border-black/15">
           <div className="space-y-1">
@@ -864,23 +840,23 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                               isSelected ? 'right-16' : 'right-3'
                             } top-3 flex items-center gap-1 ${
                               isManagerMode ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
-                            } transition-opacity bg-white/90 p-0.5 rounded-lg border border-stone-200 shadow-2xs`}
+                            } transition-opacity`}
                           >
                             <button
                               type="button"
                               onClick={(e) => openEditModal(p, e)}
-                              className="p-1 text-stone-500 hover:text-emerald-800 hover:bg-emerald-100 rounded-md transition-colors cursor-pointer"
+                              className="p-1 text-stone-500 hover:text-emerald-800 hover:bg-emerald-200/60 rounded-md transition-colors cursor-pointer"
                               title="Edit Recipe"
                             >
-                              <Edit2 className="w-3.5 h-3.5" />
+                              <Edit2 className="w-3 h-3" />
                             </button>
                             <button
                               type="button"
-                              onClick={(e) => handleDeletePresetClick(p, e)}
-                              className="p-1 text-rose-500 hover:text-rose-700 hover:bg-rose-100 rounded-md transition-colors cursor-pointer"
-                              title={isManagerMode ? 'Delete Recipe (Admin Mode)' : 'Delete Recipe'}
+                              onClick={(e) => handleDeletePreset(p.id, e)}
+                              className="p-1 text-stone-400 hover:text-red-600 hover:bg-red-100/60 rounded-md transition-colors cursor-pointer"
+                              title={isManagerMode ? 'Delete Recipe (Manager)' : 'Delete Recipe'}
                             >
-                              <Trash2 className="w-3.5 h-3.5 stroke-[2.5]" />
+                              <Trash2 className="w-3 h-3" />
                             </button>
                           </div>
                         </div>
@@ -1331,27 +1307,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         isOpen={isPasswordModalOpen}
         onClose={() => setIsPasswordModalOpen(false)}
         onSuccess={handlePasswordSuccess}
-      />
-
-      {/* Delete Entry Confirmation Modal */}
-      <ConfirmDeleteModal
-        isOpen={!!deleteTarget}
-        onClose={() => setDeleteTarget(null)}
-        onConfirm={confirmDeletePreset}
-        title="Delete Recipe Suggestion"
-        itemName={deleteTarget?.title}
-        itemCategory={deleteTarget?.category}
-        description="Are you sure you want to remove this recipe from your suggestions catalog? It will be deleted immediately."
-      />
-
-      {/* Reset Defaults Confirmation Modal */}
-      <ConfirmDeleteModal
-        isOpen={isResetConfirmOpen}
-        onClose={() => setIsResetConfirmOpen(false)}
-        onConfirm={confirmResetDefaults}
-        title="Reset to Default Presets"
-        itemName="All Custom Recipes & Suggestions"
-        description="This will restore the standard default catering recipes catalog and remove all added custom entries."
       />
     </div>
   );
