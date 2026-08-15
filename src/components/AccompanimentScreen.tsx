@@ -19,6 +19,7 @@ import {
   Layers,
   ChevronDown,
   ChevronUp,
+  PackageCheck,
 } from 'lucide-react';
 import {
   Accompaniment,
@@ -34,6 +35,8 @@ import {
 } from '../utils/calculations';
 import { SpoonDensityModal } from './SpoonDensityModal';
 import { PreparingInstructionsSection } from './PreparingInstructionsSection';
+import { RetailPackUnitsModal } from './RetailPackUnitsModal';
+import { RetailPackGuideItem } from '../data/retailPackUnits';
 import platedMealPieChartImg from '../assets/images/plated_meal_pie_chart_1786617201280.jpg';
 
 interface AccompanimentScreenProps {
@@ -52,6 +55,7 @@ export const AccompanimentScreen: React.FC<AccompanimentScreenProps> = ({
   const [activeAccIndex, setActiveAccIndex] = useState<number>(0);
   const [viewMode, setViewMode] = useState<'simple' | 'detailed'>('simple');
   const [isSpoonModalOpen, setIsSpoonModalOpen] = useState<boolean>(false);
+  const [isRetailModalOpen, setIsRetailModalOpen] = useState<boolean>(false);
 
   // Plated Meal Pie Chart Section States
   const [activeVisualTab, setActiveVisualTab] = useState<'pie' | 'photo' | 'prompt'>('pie');
@@ -149,11 +153,15 @@ export const AccompanimentScreen: React.FC<AccompanimentScreenProps> = ({
     if (orderItemId) {
       const selectedItem = orderList.find((i) => i.id === orderItemId);
       if (selectedItem) {
+        const isLiquid = selectedItem.baseUnit === 'L' || selectedItem.packUnit === 'ml';
+        const isEach = selectedItem.baseUnit === 'each' || selectedItem.packUnit === 'each';
         newIng = calculateIngredientRow({
           orderItemId: selectedItem.id,
           name: selectedItem.itemDescription,
           isManual: false,
-          quantityUsed: 250, // default 250g
+          quantityUsed: isEach ? 1 : (isLiquid ? 100 : 250),
+          unit: isEach ? 'each' : (isLiquid ? 'ml' : 'g'),
+          baseUnit: selectedItem.baseUnit,
           eyPercent: selectedItem.estYieldPercent,
           costPerUnit: selectedItem.pricePerUnit,
         });
@@ -162,6 +170,8 @@ export const AccompanimentScreen: React.FC<AccompanimentScreenProps> = ({
           name: 'Custom Ingredient',
           isManual: true,
           quantityUsed: 0,
+          unit: 'g',
+          baseUnit: 'kg',
           eyPercent: 1.0,
           costPerUnit: 0,
         });
@@ -171,10 +181,35 @@ export const AccompanimentScreen: React.FC<AccompanimentScreenProps> = ({
         name: 'New Custom Ingredient',
         isManual: true,
         quantityUsed: 0,
+        unit: 'g',
+        baseUnit: 'kg',
         eyPercent: 1.0,
         costPerUnit: 0,
       });
     }
+
+    const updatedAcc = {
+      ...activeAcc,
+      ingredients: [...activeAcc.ingredients, newIng],
+    };
+    updateActiveAcc(updatedAcc);
+  };
+
+  // Add ingredient selected from South African Retail Pack Units Guide
+  const handleSelectRetailUnit = (item: RetailPackGuideItem) => {
+    const defaultUnit = item.baseUnit === 'ml' ? 'ml' : item.baseUnit === 'ea' ? 'each' : item.baseUnit === 'kg' ? 'kg' : 'g';
+    const defaultBaseUnit = item.baseUnit === 'ml' ? 'L' : item.baseUnit === 'ea' ? 'each' : 'kg';
+    const qty = item.standardGramsOrMl || item.standardCount || 100;
+
+    const newIng = calculateIngredientRow({
+      name: `${item.unit} (${item.category})`,
+      isManual: true,
+      quantityUsed: qty,
+      unit: defaultUnit,
+      baseUnit: defaultBaseUnit,
+      eyPercent: 1.0,
+      costPerUnit: 0,
+    });
 
     const updatedAcc = {
       ...activeAcc,
@@ -202,10 +237,34 @@ export const AccompanimentScreen: React.FC<AccompanimentScreenProps> = ({
           next.isManual = false;
           next.eyPercent = linkedItem.estYieldPercent;
           next.costPerUnit = linkedItem.pricePerUnit;
+          next.baseUnit = linkedItem.baseUnit;
+          if (linkedItem.baseUnit === 'L' || linkedItem.packUnit === 'ml') {
+            next.unit = 'ml';
+            next.baseUnit = 'L';
+            if (!next.quantityUsed || next.quantityUsed === 0) next.quantityUsed = 100;
+          } else if (linkedItem.baseUnit === 'each' || linkedItem.packUnit === 'each') {
+            next.unit = 'each';
+            next.baseUnit = 'each';
+            if (!next.quantityUsed || next.quantityUsed === 0) next.quantityUsed = 1;
+          } else {
+            next.unit = 'g';
+            next.baseUnit = 'kg';
+            if (!next.quantityUsed || next.quantityUsed === 0) next.quantityUsed = 250;
+          }
         } else {
           next.isManual = true;
-          next.quantityUsed = 0;
           next.costPerUnit = 0;
+        }
+      }
+
+      // If unit changed
+      if (field === 'unit') {
+        if (value === 'ml' || value === 'L') {
+          next.baseUnit = 'L';
+        } else if (value === 'each') {
+          next.baseUnit = 'each';
+        } else if (value === 'g' || value === 'kg') {
+          next.baseUnit = 'kg';
         }
       }
 
@@ -582,8 +641,18 @@ export const AccompanimentScreen: React.FC<AccompanimentScreenProps> = ({
               Ingredient Cost Breakdown
             </h3>
 
-            {/* Add Ingredient Button */}
-            <div className="flex items-center gap-2">
+            {/* Add Ingredient Button & Quick Units */}
+            <div className="flex items-center flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => setIsRetailModalOpen(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-black text-amber-950 bg-amber-300 hover:bg-amber-400 border border-amber-500 rounded-xl transition-all shadow-2xs cursor-pointer active:scale-95"
+                title="Open South African Retail Pack & Count Units Reference Guide"
+              >
+                <PackageCheck className="w-3.5 h-3.5 text-amber-900" />
+                <span>🇿🇦 SA Retail Units</span>
+              </button>
+
               <select
                 onChange={(e) => {
                   if (e.target.value) {
@@ -622,18 +691,18 @@ export const AccompanimentScreen: React.FC<AccompanimentScreenProps> = ({
               <thead className="bg-emerald-50/90 text-emerald-950 font-extrabold border-b border-emerald-100 uppercase tracking-wider">
                 <tr>
                   <th className="p-3">Ingredient Description</th>
-                  <th className="p-3 w-28">Quantity Used</th>
+                  <th className="p-3 w-36">Quantity & Unit</th>
 
                   {viewMode === 'detailed' && (
                     <>
-                      <th className="p-3 w-28">Est. Yield %</th>
+                      <th className="p-3 w-24">Est. Yield %</th>
                       <th className="p-3 w-28" title="As-Purchased Qty = Quantity Used × Est. Yield %">As-Purchased Qty</th>
                     </>
                   )}
 
-                  <th className="p-3 w-36">Unit Price (R/kg)</th>
-                  <th className="p-3 w-32 text-right">Cost</th>
-                  <th className="p-3 w-12 text-center"></th>
+                  <th className="p-3 w-40">Unit Price (R/Unit)</th>
+                  <th className="p-3 w-28 text-right">Cost</th>
+                  <th className="p-3 w-10 text-center"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-emerald-50 bg-white">
@@ -643,7 +712,7 @@ export const AccompanimentScreen: React.FC<AccompanimentScreenProps> = ({
                       colSpan={viewMode === 'detailed' ? 7 : 5}
                       className="p-8 text-center text-stone-400 bg-emerald-50/20"
                     >
-                      No ingredients added yet. Select an ingredient from the dropdown above or add custom ingredients.
+                      No ingredients added yet. Select an ingredient from the dropdown above, choose from 🇿🇦 SA Retail Units, or add custom items.
                     </td>
                   </tr>
                 ) : (
@@ -664,7 +733,7 @@ export const AccompanimentScreen: React.FC<AccompanimentScreenProps> = ({
                               }
                               className="w-full text-xs font-semibold bg-white border border-stone-300 rounded-lg p-1.5 focus:border-emerald-600 focus:outline-none text-stone-900"
                             >
-                              <option value="manual">-- Manual Custom Ingredient --</option>
+                              <option value="manual">-- Manual / Custom Ingredient --</option>
                               {orderList.map((item) => (
                                 <option key={item.id} value={item.id}>
                                   [{item.category}] {item.itemDescription}
@@ -681,32 +750,32 @@ export const AccompanimentScreen: React.FC<AccompanimentScreenProps> = ({
                                 onChange={(e) =>
                                   handleIngredientChange(ing.id, 'name', e.target.value)
                                 }
-                                placeholder="Ingredient name..."
+                                placeholder="Ingredient name (e.g. Canola Oil, Large Eggs)..."
                                 className="w-full text-xs px-2 py-1 border border-emerald-300 bg-emerald-50/60 rounded-md font-semibold text-stone-900"
                               />
                               <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-900 shrink-0 border border-emerald-200">
                                 <AlertCircle className="w-3 h-3 text-emerald-700" />
-                                Assumed 100% EY
+                                100% EY
                               </span>
                             </div>
                           ) : (
                             <div className="flex items-center gap-1 text-[11px] text-stone-500 pl-1">
                               <Link2 className="w-3 h-3 text-emerald-700" />
                               <span className="font-semibold text-emerald-900">
-                                Linked to Order List
+                                Linked to Order List ({ing.baseUnit ? `R/${ing.baseUnit}` : 'R/kg'})
                               </span>
                             </div>
                           )}
                         </div>
                       </td>
 
-                      {/* Quantity Used (Editable Cell) */}
+                      {/* Quantity Used with Unit Selector */}
                       <td className="p-3">
-                        <div className="relative">
+                        <div className="flex items-center gap-1">
                           <input
                             type="number"
                             min="0"
-                            step="5"
+                            step={ing.unit === 'each' ? '1' : ing.unit === 'L' || ing.unit === 'kg' ? '0.1' : '5'}
                             value={ing.quantityUsed}
                             onChange={(e) =>
                               handleIngredientChange(
@@ -715,12 +784,27 @@ export const AccompanimentScreen: React.FC<AccompanimentScreenProps> = ({
                                 parseFloat(e.target.value) || 0
                               )
                             }
-                            className="w-full p-1.5 text-xs font-bold border-2 border-emerald-300 bg-emerald-50/80 rounded-lg focus:outline-none focus:border-emerald-600 text-stone-900"
-                            title="Quantity used in recipe (grams or each)"
+                            className="w-20 p-1.5 text-xs font-bold border-2 border-emerald-300 bg-emerald-50/80 rounded-lg focus:outline-none focus:border-emerald-600 text-stone-900"
+                            title="Quantity used in recipe"
                           />
-                          <span className="text-[10px] text-stone-400 block mt-0.5 text-right">
-                            grams
-                          </span>
+                          <select
+                            value={ing.unit || 'g'}
+                            onChange={(e) =>
+                              handleIngredientChange(
+                                ing.id,
+                                'unit',
+                                e.target.value as any
+                              )
+                            }
+                            className="text-xs font-extrabold border border-emerald-300 bg-emerald-100 text-emerald-950 rounded-lg p-1.5 focus:outline-none cursor-pointer"
+                            title="Measurement unit"
+                          >
+                            <option value="g">g</option>
+                            <option value="kg">kg</option>
+                            <option value="ml">ml</option>
+                            <option value="L">L</option>
+                            <option value="each">ea</option>
+                          </select>
                         </div>
                       </td>
 
@@ -736,8 +820,8 @@ export const AccompanimentScreen: React.FC<AccompanimentScreenProps> = ({
 
                           {/* As-Purchased Quantity */}
                           <td className="p-3">
-                            <div className="text-xs font-bold text-stone-800 bg-stone-100 px-2 py-1.5 rounded-lg border border-stone-200" title={`As-Purchased Qty = ${ing.quantityUsed}g × ${formatPercent(ing.eyPercent)} = ${ing.asPurchasedQty.toFixed(1)}g`}>
-                              {ing.asPurchasedQty.toFixed(1)} g
+                            <div className="text-xs font-bold text-stone-800 bg-stone-100 px-2 py-1.5 rounded-lg border border-stone-200" title={`As-Purchased Qty = ${ing.quantityUsed} ${ing.unit || 'g'} × ${formatPercent(ing.eyPercent)} = ${ing.asPurchasedQty.toFixed(1)} ${ing.unit || 'g'}`}>
+                              {ing.asPurchasedQty.toFixed(1)} {ing.unit || 'g'}
                             </div>
                           </td>
                         </>
@@ -746,31 +830,48 @@ export const AccompanimentScreen: React.FC<AccompanimentScreenProps> = ({
                       {/* Price Per Unit */}
                       <td className="p-3">
                         {ing.isManual ? (
-                          <div className="relative flex items-center">
-                            <span className="absolute left-2 text-stone-500 font-bold text-xs pointer-events-none">R</span>
-                            <input
-                              type="number"
-                              min="0"
-                              step="0.50"
-                              value={ing.costPerUnit || ''}
+                          <div className="flex items-center gap-1">
+                            <div className="relative flex items-center flex-1">
+                              <span className="absolute left-2 text-stone-500 font-bold text-xs pointer-events-none">R</span>
+                              <input
+                                type="number"
+                                min="0"
+                                step="0.50"
+                                value={ing.costPerUnit || ''}
+                                onChange={(e) =>
+                                  handleIngredientChange(
+                                    ing.id,
+                                    'costPerUnit',
+                                    parseFloat(e.target.value) || 0
+                                  )
+                                }
+                                placeholder="0.00"
+                                className="w-full pl-5 pr-1 p-1.5 text-xs font-bold border-2 border-emerald-300 bg-emerald-50/80 rounded-lg focus:outline-none focus:border-emerald-600 text-stone-900"
+                                title="Enter unit price in Rands"
+                              />
+                            </div>
+                            <select
+                              value={ing.baseUnit || (ing.unit === 'ml' || ing.unit === 'L' ? 'L' : ing.unit === 'each' ? 'each' : 'kg')}
                               onChange={(e) =>
                                 handleIngredientChange(
                                   ing.id,
-                                  'costPerUnit',
-                                  parseFloat(e.target.value) || 0
+                                  'baseUnit',
+                                  e.target.value as any
                                 )
                               }
-                              placeholder="0.00"
-                              className="w-full pl-6 pr-8 p-1.5 text-xs font-bold border-2 border-emerald-300 bg-emerald-50/80 rounded-lg focus:outline-none focus:border-emerald-600 text-stone-900"
-                              title="Enter unit price per kg in Rands (R/kg)"
-                            />
-                            <span className="absolute right-2 text-[10px] text-emerald-800 font-extrabold pointer-events-none select-none">
-                              /kg
-                            </span>
+                              className="text-[11px] font-extrabold border border-emerald-300 bg-emerald-100 text-emerald-950 rounded-lg p-1.5 focus:outline-none cursor-pointer"
+                              title="Base pricing unit"
+                            >
+                              <option value="kg">/kg</option>
+                              <option value="L">/L</option>
+                              <option value="each">/ea</option>
+                              <option value="g">/g</option>
+                              <option value="ml">/ml</option>
+                            </select>
                           </div>
                         ) : (
                           <div className="text-xs font-semibold text-stone-700 bg-stone-100 px-2 py-1.5 rounded-lg border border-stone-200">
-                            {formatCurrency(ing.costPerUnit)} / kg
+                            {formatCurrency(ing.costPerUnit)} / {ing.baseUnit || (ing.unit === 'ml' || ing.unit === 'L' ? 'L' : ing.unit === 'each' ? 'each' : 'kg')}
                           </div>
                         )}
                       </td>
@@ -804,14 +905,14 @@ export const AccompanimentScreen: React.FC<AccompanimentScreenProps> = ({
                       Total Tally
                     </td>
                     <td className="p-3 font-extrabold text-stone-900">
-                      {activeAcc.ingredients.reduce((sum, i) => sum + (i.quantityUsed || 0), 0).toFixed(1)} g
+                      {activeAcc.ingredients.length} items
                     </td>
                     {viewMode === 'detailed' && (
                       <>
                         <td className="p-3 text-stone-400 font-normal text-[11px]">--</td>
                         <td className="p-3">
                           <span className="inline-block px-2 py-1 bg-emerald-100 text-emerald-950 font-black rounded-md border border-emerald-300">
-                            {activeAcc.batchQuantity.toFixed(1)} g
+                            {activeAcc.batchQuantity.toFixed(1)} g/ml
                           </span>
                         </td>
                       </>
@@ -987,6 +1088,13 @@ export const AccompanimentScreen: React.FC<AccompanimentScreenProps> = ({
         onClose={() => setIsSpoonModalOpen(false)}
         onApply={handleApplySpoonGrams}
         initialSpoonInfo={activeAcc.spoonInfo}
+      />
+
+      {/* South African Retail Pack & Count Units Modal */}
+      <RetailPackUnitsModal
+        isOpen={isRetailModalOpen}
+        onClose={() => setIsRetailModalOpen(false)}
+        onSelectUnit={handleSelectRetailUnit}
       />
     </div>
   );

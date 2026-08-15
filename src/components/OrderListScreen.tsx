@@ -30,6 +30,7 @@ import {
   Layers,
   ChevronRight,
   CheckCheck,
+  PackageCheck,
 } from 'lucide-react';
 import {
   OrderItem,
@@ -46,6 +47,8 @@ import {
   calculatePricePerUnit,
 } from '../utils/calculations';
 import { isDateExpiredOrInvalid, cleanupExpiredAndInvalidDates } from '../utils/dateCleanup';
+import { RetailPackUnitsModal } from './RetailPackUnitsModal';
+import { RetailPackGuideItem } from '../data/retailPackUnits';
 
 const EXECUTIVE_EMAIL = 'biyelamduduzi10@gmail.com';
 const PROPOSALS_STORAGE_KEY = 'mafungwase_order_proposals_v1';
@@ -116,6 +119,7 @@ export const OrderListScreen: React.FC<OrderListScreenProps> = ({
 
   // Modals & Item Form State
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isRetailModalOpen, setIsRetailModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<OrderItem | null>(null);
   const [deleteConfirmItem, setDeleteConfirmItem] = useState<OrderItem | null>(null);
 
@@ -324,13 +328,36 @@ export const OrderListScreen: React.FC<OrderListScreenProps> = ({
     });
   };
 
+  // Populate form with item selected from South African Retail Pack Units modal
+  const handleSelectRetailUnitInOrderList = (retailItem: RetailPackGuideItem) => {
+    setItemDescription(retailItem.unit);
+    setCategory(
+      retailItem.category.includes('Dairy') || retailItem.category.includes('Pantry')
+        ? 'Dairy & Pantry'
+        : retailItem.category.includes('Produce')
+        ? 'Vegetables & Produce'
+        : retailItem.category.includes('Bulk')
+        ? 'Spices & Condiments'
+        : 'Dairy & Pantry'
+    );
+    setPackType(retailItem.baseUnit === 'ea' ? 'Each' : 'Pack');
+    setPackWeight(retailItem.standardGramsOrMl || retailItem.standardCount || 1000);
+    setPackUnit(retailItem.baseUnit === 'ml' ? 'ml' : retailItem.baseUnit === 'ea' ? 'each' : 'g');
+    setBaseUnit(retailItem.baseUnit === 'ml' ? 'L' : retailItem.baseUnit === 'ea' ? 'each' : 'kg');
+    setEstYieldPercent(1.0);
+    setYieldNote(retailItem.commonUse || '100% usable');
+    setIsRetailModalOpen(false);
+    setIsModalOpen(true);
+  };
+
   // Save Item or Create Change Proposal
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
     const calculatedPricePerUnit = calculatePricePerUnit(
       packPrice,
       packWeight,
-      packUnit
+      packUnit,
+      baseUnit
     );
 
     const cleanUrl = sourceUrl.trim();
@@ -723,6 +750,15 @@ export const OrderListScreen: React.FC<OrderListScreenProps> = ({
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => setIsRetailModalOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-black text-amber-950 bg-amber-300 hover:bg-amber-400 border border-amber-500 rounded-xl transition-all shadow-2xs cursor-pointer active:scale-95"
+              title="Open South African Retail Pack & Count Units Reference Guide"
+            >
+              <PackageCheck className="w-4 h-4 text-amber-900" />
+              <span>🇿🇦 SA Retail Units Guide</span>
+            </button>
+
             <button
               onClick={handleCleanExpiredDates}
               className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-amber-900 bg-amber-100/80 hover:bg-amber-200/90 border border-amber-300 rounded-xl transition-colors cursor-pointer"
@@ -1142,6 +1178,20 @@ export const OrderListScreen: React.FC<OrderListScreenProps> = ({
                 </select>
               </div>
 
+              <div className="flex items-center justify-between gap-2 p-2.5 bg-amber-50 rounded-xl border border-amber-200">
+                <span className="text-[11px] font-bold text-amber-900 flex items-center gap-1">
+                  <PackageCheck className="w-3.5 h-3.5 text-amber-700" />
+                  Standard SA Retail Pack?
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setIsRetailModalOpen(true)}
+                  className="px-2.5 py-1 text-[11px] font-extrabold text-amber-950 bg-amber-300 hover:bg-amber-400 border border-amber-500 rounded-lg shadow-2xs cursor-pointer"
+                >
+                  🇿🇦 Fill from SA Retail Units Guide
+                </button>
+              </div>
+
               <div>
                 <label className="block font-bold text-stone-700 mb-1">
                   Item Description <span className="text-rose-600">*</span>
@@ -1149,7 +1199,7 @@ export const OrderListScreen: React.FC<OrderListScreenProps> = ({
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Chicken Fillet (Skinless)"
+                  placeholder="e.g. Canola Cooking Oil or Large Eggs"
                   value={itemDescription}
                   onChange={(e) => setItemDescription(e.target.value)}
                   className="w-full p-2.5 border border-stone-300 rounded-xl font-medium"
@@ -1186,14 +1236,15 @@ export const OrderListScreen: React.FC<OrderListScreenProps> = ({
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
+              <div className="grid grid-cols-3 gap-2 sm:gap-3">
+                <div className="col-span-1">
                   <label className="block font-bold text-stone-700 mb-1">
-                    Pack Weight / Quantity <span className="text-rose-600">*</span>
+                    Pack Size / Qty <span className="text-rose-600">*</span>
                   </label>
                   <input
                     type="number"
-                    min="1"
+                    min="0.1"
+                    step="any"
                     required
                     value={packWeight}
                     onChange={(e) => setPackWeight(parseFloat(e.target.value) || 1)}
@@ -1201,21 +1252,75 @@ export const OrderListScreen: React.FC<OrderListScreenProps> = ({
                   />
                 </div>
 
-                <div>
-                  <label className="block font-bold text-stone-700 mb-1">Unit</label>
+                <div className="col-span-1">
+                  <label className="block font-bold text-stone-700 mb-1">Pack Unit</label>
                   <select
                     value={packUnit}
                     onChange={(e) => {
                       const u = e.target.value as PackUnit;
                       setPackUnit(u);
-                      setBaseUnit(u === 'each' ? 'each' : 'kg');
+                      if (u === 'ml' || u === 'L') {
+                        setBaseUnit('L');
+                      } else if (u === 'each' || u === 'tray' || u === 'punnet' || u === 'can' || u === 'bunch' || u === 'bottle' || u === 'box' || u === 'bag') {
+                        setBaseUnit('each');
+                      } else {
+                        setBaseUnit('kg');
+                      }
                     }}
-                    className="w-full p-2.5 border border-stone-300 rounded-xl bg-white font-medium"
+                    className="w-full p-2.5 border border-stone-300 rounded-xl bg-white font-bold text-stone-900"
                   >
-                    <option value="g">grams (g)</option>
-                    <option value="ml">milliliters (ml)</option>
-                    <option value="each">each / count</option>
+                    <optgroup label="Mass (Weight)">
+                      <option value="g">grams (g)</option>
+                      <option value="kg">kilograms (kg)</option>
+                    </optgroup>
+                    <optgroup label="Volume (Liquids & Oils)">
+                      <option value="ml">milliliters (ml)</option>
+                      <option value="L">litres (L)</option>
+                    </optgroup>
+                    <optgroup label="Count & Retail Packaging">
+                      <option value="each">each (ea)</option>
+                      <option value="tray">tray (e.g. 30 eggs)</option>
+                      <option value="punnet">punnet (e.g. 250g)</option>
+                      <option value="can">can / tin (410g)</option>
+                      <option value="brick">brick (500g)</option>
+                      <option value="bottle">bottle</option>
+                      <option value="bunch">bunch / packet</option>
+                      <option value="box">box</option>
+                      <option value="bag">bag</option>
+                    </optgroup>
                   </select>
+                </div>
+
+                <div className="col-span-1">
+                  <label className="block font-bold text-stone-700 mb-1">Base Price Unit</label>
+                  <select
+                    value={baseUnit}
+                    onChange={(e) => setBaseUnit(e.target.value as BaseUnit)}
+                    className="w-full p-2.5 border border-stone-300 rounded-xl bg-emerald-50 text-emerald-950 font-extrabold"
+                  >
+                    <option value="kg">Per Kilogram (R/kg)</option>
+                    <option value="L">Per Litre (R/L)</option>
+                    <option value="each">Per Each / Item (R/ea)</option>
+                    <option value="g">Per Gram (R/g)</option>
+                    <option value="ml">Per Millilitre (R/ml)</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Live Price Calculation Preview Card */}
+              <div className="p-3 bg-emerald-50/90 border border-emerald-300 rounded-2xl flex items-center justify-between">
+                <div>
+                  <span className="text-[10px] font-extrabold text-emerald-900 uppercase tracking-wider block">
+                    Calculated Base Price
+                  </span>
+                  <span className="text-xs text-stone-600">
+                    {formatCurrency(packPrice)} per {packWeight} {packUnit}
+                  </span>
+                </div>
+                <div className="text-right">
+                  <span className="text-base font-black text-emerald-950 block">
+                    {formatCurrency(calculatePricePerUnit(packPrice, packWeight, packUnit, baseUnit))} / {baseUnit}
+                  </span>
                 </div>
               </div>
 
@@ -1587,6 +1692,13 @@ export const OrderListScreen: React.FC<OrderListScreenProps> = ({
           </div>
         </div>
       )}
+
+      {/* South African Retail Pack & Count Units Modal */}
+      <RetailPackUnitsModal
+        isOpen={isRetailModalOpen}
+        onClose={() => setIsRetailModalOpen(false)}
+        onSelectUnit={handleSelectRetailUnitInOrderList}
+      />
     </div>
   );
 };

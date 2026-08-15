@@ -9,6 +9,7 @@ import {
   Shield,
   Phone,
   MessageSquare,
+  MessageCircle,
   BadgeDollarSign,
   Trash2,
   Edit2,
@@ -380,47 +381,61 @@ export const CommunityRecipesScreen: React.FC<CommunityRecipesScreenProps> = ({
             Explore authentic heritage dishes, regional African catering menus, and local home cook specialties. Click any recipe to populate your costing board or submit your own custom recipe.
           </p>
 
-          <div className="pt-2 flex flex-wrap items-center gap-3">
-            <button
-              onClick={handleOpenAddModal}
-              className="inline-flex items-center gap-2.5 px-6 py-3.5 bg-amber-400 hover:bg-amber-300 text-emerald-950 font-black rounded-2xl shadow-lg transition-all transform hover:-translate-y-0.5 cursor-pointer text-sm"
-            >
-              <Plus className="w-5 h-5 stroke-[2.5]" />
-              <span>+ Add Custom Recipe</span>
-            </button>
-
-            <button
-              onClick={toggleManagerMode}
-              className={`inline-flex items-center gap-2 px-4 py-3 rounded-2xl text-xs font-extrabold transition-all border cursor-pointer ${
-                isManagerMode
-                  ? 'bg-amber-500 text-stone-950 border-amber-300 shadow-md'
-                  : 'bg-emerald-900/60 hover:bg-emerald-800 text-emerald-100 border-emerald-700/60'
-              }`}
-            >
-              <Lock className="w-3.5 h-3.5" />
-              <span>{isManagerMode ? '✓ Admin Mode: ON (Viewing Contacts)' : 'Admin Mode (Protected)'}</span>
-            </button>
-
-            {isManagerMode && (
+          <div className="pt-3 flex flex-col items-center gap-4">
+            <div className="flex flex-wrap items-center justify-center gap-3">
               <button
-                onClick={handleResetDefaults}
-                className="inline-flex items-center gap-2 px-4 py-3 rounded-2xl text-xs font-black bg-stone-800 hover:bg-stone-700 text-stone-300 border border-stone-600 shadow-md cursor-pointer transition-all"
-                title="Restore default recipe presets"
+                onClick={handleOpenAddModal}
+                className="inline-flex items-center justify-center gap-3 px-8 py-3.5 sm:px-10 sm:py-4 bg-amber-400 hover:bg-amber-300 text-emerald-950 font-black rounded-full sm:rounded-2xl shadow-xl hover:shadow-2xl transition-all transform hover:-translate-y-0.5 cursor-pointer text-base sm:text-lg"
               >
-                <RotateCcw className="w-3.5 h-3.5 text-stone-400" />
-                <span>Reset Defaults</span>
+                <Plus className="w-5 h-5 sm:w-6 sm:h-6 stroke-[3]" />
+                <span>Add And Cost Your Own Recipe</span>
               </button>
-            )}
+              <a
+                href="https://wa.me/0603628760"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center justify-center p-3.5 sm:p-4 bg-[#25D366] hover:bg-[#1EBE5D] text-white rounded-full sm:rounded-2xl shadow-xl hover:shadow-2xl transition-all transform hover:-translate-y-0.5 cursor-pointer"
+                title="Chat with us on WhatsApp (+27 60 362 8760)"
+                aria-label="WhatsApp Contact"
+              >
+                <MessageCircle className="w-6 h-6 sm:w-7 sm:h-7 stroke-[2.4]" />
+              </a>
+            </div>
 
-            {isManagerMode && inquiries.length > 0 && (
+            <div className="flex flex-wrap items-center justify-center gap-3">
               <button
-                onClick={() => setIsManagerInboxOpen(true)}
-                className="inline-flex items-center gap-2 px-4 py-3 rounded-2xl text-xs font-black bg-stone-900 text-amber-300 border border-amber-500/50 shadow-md cursor-pointer hover:bg-black"
+                onClick={toggleManagerMode}
+                className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-extrabold transition-all border cursor-pointer ${
+                  isManagerMode
+                    ? 'bg-amber-500 text-stone-950 border-amber-300 shadow-md'
+                    : 'bg-emerald-900/60 hover:bg-emerald-800 text-emerald-100 border-emerald-700/60'
+                }`}
               >
-                <MessageSquare className="w-3.5 h-3.5 text-amber-400" />
-                <span>Client Inquiries ({inquiries.length})</span>
+                <Lock className="w-3.5 h-3.5" />
+                <span>{isManagerMode ? '✓ Admin Mode: ON (Viewing Contacts)' : 'Admin Mode (Protected)'}</span>
               </button>
-            )}
+
+              {isManagerMode && (
+                <button
+                  onClick={handleResetDefaults}
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-black bg-stone-800 hover:bg-stone-700 text-stone-300 border border-stone-600 shadow-md cursor-pointer transition-all"
+                  title="Restore default recipe presets"
+                >
+                  <RotateCcw className="w-3.5 h-3.5 text-stone-400" />
+                  <span>Reset Defaults</span>
+                </button>
+              )}
+
+              {isManagerMode && inquiries.length > 0 && (
+                <button
+                  onClick={() => setIsManagerInboxOpen(true)}
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-black bg-stone-900 text-amber-300 border border-amber-500/50 shadow-md cursor-pointer hover:bg-black"
+                >
+                  <MessageSquare className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Client Inquiries ({inquiries.length})</span>
+                </button>
+              )}
+            </div>
           </div>
         </div>
 

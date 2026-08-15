@@ -1,6 +1,6 @@
 export type PackType = 'Pack' | 'Loose' | 'Each';
-export type PackUnit = 'g' | 'ml' | 'each';
-export type BaseUnit = 'kg' | 'each';
+export type PackUnit = 'g' | 'kg' | 'ml' | 'L' | 'each' | 'bunch' | 'punnet' | 'tray' | 'can' | 'brick' | 'slab' | 'sachet' | 'loaf' | 'bottle' | 'box' | 'bag';
+export type BaseUnit = 'kg' | 'g' | 'L' | 'ml' | 'each';
 
 export interface OrderItem {
   id: string;
@@ -8,10 +8,10 @@ export interface OrderItem {
   itemDescription: string;
   packType: PackType;
   packPrice: number; // in Rand
-  packWeight: number; // grams or count
+  packWeight: number; // grams, ml, kg, L, or count
   packUnit: PackUnit;
   baseUnit: BaseUnit;
-  pricePerUnit: number; // calculated price per kg (for g/ml) or per each (for count)
+  pricePerUnit: number; // calculated price per base unit (R/kg, R/L, R/each, etc.)
   estYieldPercent: number; // decimal e.g. 0.85 = 85%
   yieldNote: string;
   source: string;
@@ -25,10 +25,12 @@ export interface AccompanimentIngredient {
   orderItemId?: string; // linked to order list
   name: string;
   isManual: boolean;
-  quantityUsed: number; // g or ml or each
+  quantityUsed: number; // e.g. 250 (g or ml or each or kg or L)
+  unit?: 'g' | 'kg' | 'ml' | 'L' | 'each'; // measurement unit
+  baseUnit?: BaseUnit; // base unit for costing e.g. 'kg', 'L', 'each'
   eyPercent: number; // 0.0 to 1.0
   asPurchasedQty: number; // quantityUsed * eyPercent
-  costPerUnit: number; // R/kg or R/each
+  costPerUnit: number; // R/kg, R/L, R/each
   individualCost: number; // As-Purchased Qty * costPerUnit (scaled)
 }
 

@@ -232,16 +232,44 @@ export const INITIAL_ORDER_LIST: OrderItem[] = [
     packPrice: 220.00,
     packWeight: 5000, // 5 Liters / 5000ml
     packUnit: 'ml',
-    baseUnit: 'kg',
-    pricePerUnit: 44.00,
+    baseUnit: 'L',
+    pricePerUnit: 44.00, // R44.00 / L
     estYieldPercent: 1.00,
-    yieldNote: '100% usable',
+    yieldNote: '100% usable cooking oil',
     source: 'Catering Depot',
+  },
+  {
+    id: 'ord-dairy-fresh-milk',
+    category: 'Dairy & Pantry',
+    itemDescription: 'Fresh Full Cream Milk',
+    packType: 'Pack',
+    packPrice: 38.00,
+    packWeight: 2000, // 2 Litres / 2000ml
+    packUnit: 'ml',
+    baseUnit: 'L',
+    pricePerUnit: 19.00, // R19.00 / L
+    estYieldPercent: 1.00,
+    yieldNote: 'Ready to use',
+    source: 'Dairy King',
+  },
+  {
+    id: 'ord-dairy-eggs-30',
+    category: 'Dairy & Pantry',
+    itemDescription: 'Large Farm Fresh Eggs (Tray of 30)',
+    packType: 'Each',
+    packPrice: 84.00,
+    packWeight: 30, // 30 eggs
+    packUnit: 'each',
+    baseUnit: 'each',
+    pricePerUnit: 2.80, // R2.80 each
+    estYieldPercent: 1.00,
+    yieldNote: 'Whole count per recipe',
+    source: 'Egg Farm Direct',
   },
   {
     id: 'ord-dairy-4',
     category: 'Dairy & Pantry',
-    itemDescription: 'Unsalted Butter',
+    itemDescription: 'Unsalted Butter (500g Brick)',
     packType: 'Pack',
     packPrice: 85.00,
     packWeight: 500,

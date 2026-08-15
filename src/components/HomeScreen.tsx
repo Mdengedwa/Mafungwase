@@ -19,6 +19,7 @@ import {
   Lock,
   Phone,
   MessageSquare,
+  MessageCircle,
   UserCheck,
   Layers,
 } from 'lucide-react';
@@ -509,7 +510,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
         {/* Inner Content Layer */}
         <div className="relative z-10 space-y-5">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-stone-700/70">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-stone-700/70">
             <div>
               <div className="flex items-center gap-2.5">
                 <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight drop-shadow-md">
@@ -568,14 +569,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
               <button
                 type="button"
-                onClick={openAddModal}
-                className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-black text-emerald-950 bg-amber-400 hover:bg-amber-300 rounded-xl transition-all shadow-md cursor-pointer"
-              >
-                <Plus className="w-3.5 h-3.5 stroke-[3]" />
-                Add Recipe
-              </button>
-              <button
-                type="button"
                 onClick={() => setIsBulkModalOpen(true)}
                 className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-stone-100 bg-white/15 hover:bg-white/25 border border-white/30 backdrop-blur-md rounded-xl transition-all cursor-pointer shadow-sm"
                 title="Bulk import or paste recipes"
@@ -592,6 +585,28 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                 <RotateCcw className="w-3.5 h-3.5" />
               </button>
             </div>
+          </div>
+
+          {/* Centered Large "Add And Cost Your Own Recipe" Button & WhatsApp Direct Contact */}
+          <div className="flex flex-wrap items-center justify-center gap-3 py-2">
+            <button
+              type="button"
+              onClick={openAddModal}
+              className="inline-flex items-center justify-center gap-3 px-8 py-3.5 sm:px-10 sm:py-4 text-base sm:text-lg font-black text-emerald-950 bg-amber-400 hover:bg-amber-300 rounded-full sm:rounded-2xl transition-all shadow-xl hover:shadow-2xl hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
+            >
+              <Plus className="w-5 h-5 sm:w-6 sm:h-6 stroke-[3]" />
+              <span>Add And Cost Your Own Recipe</span>
+            </button>
+            <a
+              href="https://wa.me/0603628760"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center justify-center p-3.5 sm:p-4 bg-[#25D366] hover:bg-[#1EBE5D] text-white rounded-full sm:rounded-2xl transition-all shadow-xl hover:shadow-2xl hover:scale-[1.05] active:scale-[0.98] cursor-pointer"
+              title="Chat with us on WhatsApp (+27 60 362 8760)"
+              aria-label="WhatsApp Contact"
+            >
+              <MessageCircle className="w-6 h-6 sm:w-7 sm:h-7 stroke-[2.4]" />
+            </a>
           </div>
 
           {/* Search & Category Filter Bar */}

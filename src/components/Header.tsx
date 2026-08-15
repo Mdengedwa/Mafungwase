@@ -127,9 +127,18 @@ export const Header: React.FC<HeaderProps> = ({
                 />
               </div>
             )}
-            <span className="font-futura font-black text-xl tracking-[0.18em] uppercase text-white select-none font-['Jost','Futura','Futura_PT','Montserrat','Century_Gothic',sans-serif]">
-              CATCHUP
-            </span>
+            <div className="flex flex-col">
+              <span className="font-futura font-black text-xl tracking-[0.18em] uppercase text-white select-none leading-tight font-['Jost','Futura','Futura_PT','Montserrat','Century_Gothic',sans-serif]">
+                CATCHUP
+              </span>
+              <a
+                href="tel:+27603628760"
+                className="text-[11px] font-medium tracking-wide text-emerald-200/90 hover:text-white transition-colors leading-none mt-0.5"
+                title="Contact CATCHUP: +27 60 362 8760"
+              >
+                +27 60 362 8760
+              </a>
+            </div>
           </div>
 
           {/* Nav Items - Desktop / Tablet */}

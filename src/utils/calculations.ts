@@ -32,19 +32,56 @@ export function formatPercent(value: number): string {
 }
 
 /**
- * Calculate Price per Base Unit (kg or each) from pack parameters
+ * Calculate Price per Base Unit (kg, L, each, etc.) from pack parameters
  */
 export function calculatePricePerUnit(
   packPrice: number,
   packWeight: number,
-  packUnit: 'g' | 'ml' | 'each'
+  packUnit: string,
+  baseUnit?: string
 ): number {
   if (!packWeight || packWeight <= 0 || !packPrice || packPrice < 0) return 0;
-  if (packUnit === 'each') {
-    return packPrice / packWeight; // Price per each
+
+  const pUnit = (packUnit || 'g').toLowerCase();
+  const bUnit = (baseUnit || '').toLowerCase();
+
+  // If discrete count / each
+  if (pUnit === 'each' || pUnit === 'ea' || bUnit === 'each' || bUnit === 'ea') {
+    return packPrice / packWeight;
   }
-  // For g or ml, packWeight is in grams/ml. Return Price per kg/liter (1000g)
-  return (packPrice / packWeight) * 1000;
+
+  // Liquid volume calculation (ml -> L or L -> L or ml -> ml)
+  if (pUnit === 'ml') {
+    if (bUnit === 'ml') {
+      return packPrice / packWeight;
+    }
+    // Standard liquid base unit is Litres (L)
+    return (packPrice / packWeight) * 1000;
+  }
+  if (pUnit === 'l' || pUnit === 'litre' || pUnit === 'litres') {
+    if (bUnit === 'ml') {
+      return packPrice / (packWeight * 1000);
+    }
+    return packPrice / packWeight;
+  }
+
+  // Mass / Weight calculation (g -> kg or kg -> kg or g -> g)
+  if (pUnit === 'g' || pUnit === 'grams') {
+    if (bUnit === 'g') {
+      return packPrice / packWeight;
+    }
+    // Standard mass base unit is Kilograms (kg)
+    return (packPrice / packWeight) * 1000;
+  }
+  if (pUnit === 'kg' || pUnit === 'kilograms') {
+    if (bUnit === 'g') {
+      return packPrice / (packWeight * 1000);
+    }
+    return packPrice / packWeight;
+  }
+
+  // Fallback for custom retail units (bunch, tray, can, etc.)
+  return packPrice / packWeight;
 }
 
 /**
@@ -95,11 +132,11 @@ export function calculateSpoonGrams(
 }
 
 /**
- * Calculate single ingredient row metrics
+ * Calculate single ingredient row metrics with full support for liquids (ml, L), weight (g, kg), and counts (each)
  */
 export function calculateIngredientRow(
   ingredient: Partial<AccompanimentIngredient>,
-  unit: 'g' | 'ml' | 'each' = 'g'
+  overrideUnit?: 'g' | 'kg' | 'ml' | 'L' | 'each'
 ): AccompanimentIngredient {
   const quantityUsed = ingredient.quantityUsed || 0;
   const eyPercent =
@@ -108,16 +145,47 @@ export function calculateIngredientRow(
       : 1.0;
   const costPerUnit = ingredient.costPerUnit || 0;
 
+  // Determine explicit unit and baseUnit
+  const unit = overrideUnit || ingredient.unit || 'g';
+  const baseUnit = ingredient.baseUnit || (unit === 'ml' || unit === 'L' ? 'L' : unit === 'each' ? 'each' : 'kg');
+
   // As-Purchased Quantity = Quantity used * EY%
   const asPurchasedQty = quantityUsed * eyPercent;
 
-  // Cost calculation
-  // If unit is g or ml, costPerUnit is R/kg (or R/L), so divide asPurchasedQty by 1000
-  // If unit is each, costPerUnit is R/each
-  const individualCost =
-    unit === 'each'
-      ? asPurchasedQty * costPerUnit
-      : (asPurchasedQty / 1000) * costPerUnit;
+  // Cost calculation based on measurement unit and pricing base unit
+  let individualCost = 0;
+
+  if (unit === 'each') {
+    individualCost = asPurchasedQty * costPerUnit;
+  } else if (unit === 'g') {
+    if (baseUnit === 'g') {
+      individualCost = asPurchasedQty * costPerUnit;
+    } else {
+      // Base unit is kg (R/kg) -> divide grams by 1000
+      individualCost = (asPurchasedQty / 1000) * costPerUnit;
+    }
+  } else if (unit === 'kg') {
+    if (baseUnit === 'g') {
+      individualCost = (asPurchasedQty * 1000) * costPerUnit;
+    } else {
+      individualCost = asPurchasedQty * costPerUnit;
+    }
+  } else if (unit === 'ml') {
+    if (baseUnit === 'ml') {
+      individualCost = asPurchasedQty * costPerUnit;
+    } else {
+      // Base unit is L (R/L) -> divide ml by 1000
+      individualCost = (asPurchasedQty / 1000) * costPerUnit;
+    }
+  } else if (unit === 'L') {
+    if (baseUnit === 'ml') {
+      individualCost = (asPurchasedQty * 1000) * costPerUnit;
+    } else {
+      individualCost = asPurchasedQty * costPerUnit;
+    }
+  } else {
+    individualCost = asPurchasedQty * costPerUnit;
+  }
 
   return {
     id: ingredient.id || `ing-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
@@ -125,6 +193,8 @@ export function calculateIngredientRow(
     name: ingredient.name || 'Unnamed Ingredient',
     isManual: ingredient.isManual ?? false,
     quantityUsed,
+    unit,
+    baseUnit,
     eyPercent,
     asPurchasedQty,
     costPerUnit,
@@ -138,8 +208,7 @@ export function calculateIngredientRow(
 export function recalculateAccompaniment(acc: Accompaniment): Accompaniment {
   // 1. Recalculate each ingredient
   const updatedIngredients = acc.ingredients.map((ing) => {
-    const isEach = ing.name.toLowerCase().includes('packaging') || ing.costPerUnit > 500 && ing.quantityUsed < 10;
-    return calculateIngredientRow(ing, isEach ? 'each' : 'g');
+    return calculateIngredientRow(ing);
   });
 
   // 2. Sum Total Ingredient Cost
@@ -153,11 +222,14 @@ export function recalculateAccompaniment(acc: Accompaniment): Accompaniment {
     acc.qFactorPercent !== undefined ? acc.qFactorPercent : 0.10;
   const recipeCost = totalIngredientCost * (1 + qFactorPercent);
 
-  // 4. Recipe Batch Quantity (grams) = Tally (sum) of As-Purchased Qty column
-  const totalAsPurchasedQty = updatedIngredients.reduce(
-    (sum, ing) => sum + (ing.asPurchasedQty || 0),
-    0
-  );
+  // 4. Recipe Batch Quantity (grams/ml) = Tally (sum) of As-Purchased Qty column
+  const totalAsPurchasedQty = updatedIngredients.reduce((sum, ing) => {
+    const qty = ing.asPurchasedQty || 0;
+    if (ing.unit === 'kg' || ing.unit === 'L') {
+      return sum + qty * 1000;
+    }
+    return sum + qty;
+  }, 0);
   const batchQuantity = totalAsPurchasedQty > 0 ? totalAsPurchasedQty : (acc.batchQuantity > 0 ? acc.batchQuantity : 1000);
 
   // 5. Number of Portions = Batch Quantity / Standard Portion Size
