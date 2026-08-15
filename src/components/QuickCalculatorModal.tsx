@@ -115,10 +115,10 @@ export const QuickCalculatorModal: React.FC<QuickCalculatorModalProps> = ({
             </div>
             <div>
               <h3 className="font-extrabold text-base sm:text-lg leading-tight">
-                Quick Purchasing Calculator
+                Buying Calculator
               </h3>
               <p className="text-[11px] text-emerald-200/80">
-                Fast bulk item allocation per guest/serving
+                Fast bulk item allocation and guest purchase estimator
               </p>
             </div>
           </div>

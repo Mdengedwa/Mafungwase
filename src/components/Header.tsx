@@ -132,7 +132,7 @@ export const Header: React.FC<HeaderProps> = ({
                 CATCHUP
               </span>
               <span className="text-[10px] sm:text-[11px] font-medium tracking-wide text-emerald-200/90 leading-none mt-0.5 select-none whitespace-nowrap">
-                Costing For Food Professionals
+                Profitable Kitchens
               </span>
             </div>
           </div>
@@ -191,14 +191,14 @@ export const Header: React.FC<HeaderProps> = ({
 
           {/* Right Action Buttons */}
           <div className="flex items-center gap-2">
-            {/* Quick Calculator Button (Always accessible) */}
+            {/* Buying Calculator Button (Always accessible) */}
             <button
               onClick={onOpenQuickCalc}
-              title="Quickly divide bulk purchase items by number of guests"
+              title="Quickly calculate buying requirements and portions per guest"
               className="text-xs font-extrabold text-amber-200 hover:text-white bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400/50 px-3.5 py-2 rounded-xl transition-all flex items-center gap-2 shadow-xs cursor-pointer"
             >
               <Scale className="w-4 h-4 text-amber-300" />
-              <span className="hidden sm:inline">Quick Calculator</span>
+              <span className="hidden sm:inline">Buying Calculator</span>
             </button>
 
             {/* Developer Mode Only: Change Logo Button */}
