@@ -40,6 +40,7 @@ export const DishBuilderScreen: React.FC<DishBuilderScreenProps> = ({
   onBackToLibrary,
 }) => {
   const [newAccInput, setNewAccInput] = useState('');
+  const [showAddInput, setShowAddInput] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // App Manager Mode State (persisted)
@@ -108,6 +109,7 @@ export const DishBuilderScreen: React.FC<DishBuilderScreenProps> = ({
     if (trimmed && !accompanimentNames.includes(trimmed)) {
       setAccompanimentNames([...accompanimentNames, trimmed]);
       setNewAccInput('');
+      setShowAddInput(false);
     }
   };
 
@@ -155,24 +157,24 @@ export const DishBuilderScreen: React.FC<DishBuilderScreenProps> = ({
         </button>
       </div>
 
-      {/* Catering Dish & Accompaniment Builder (Dedicated Page - Exactly Matching Screenshot) */}
+      {/* Catering Dish & Accompaniment Builder (Dedicated Page) */}
       <div
         style={{
-          backgroundColor: '#fbf304',
+          backgroundColor: '#0B3B28',
           fontFamily: "'Futura', 'Futura PT', 'Futura-Medium', 'Futura-Bold', 'Jost', 'Century Gothic', -apple-system, sans-serif",
         }}
-        className="font-futura rounded-3xl p-6 sm:p-8 border-2 border-black shadow-xl space-y-6"
+        className="font-futura rounded-3xl p-6 sm:p-8 border-2 border-emerald-900 shadow-2xl space-y-6 text-white"
       >
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b-2 border-black/15">
-          <div className="space-y-1">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-black text-[#fbf304] border border-black shadow-xs">
-              <ChefHat className="w-3.5 h-3.5 text-[#fbf304]" />
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b-2 border-emerald-800/80">
+          <div className="space-y-1.5">
+            <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-black bg-[#06261A] text-amber-300 border border-emerald-700/80 shadow-xs">
+              <ChefHat className="w-3.5 h-3.5 text-amber-400" />
               Step 1 of 4 • Recipe & Menu Setup
             </span>
-            <h1 className="text-2xl sm:text-3xl font-black text-black tracking-tight drop-shadow-xs">
+            <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight drop-shadow-sm">
               Catering Dish & Accompaniment Builder
             </h1>
-            <p className="text-xs sm:text-sm text-stone-900 font-bold">
+            <p className="text-xs sm:text-sm text-emerald-100 font-medium leading-relaxed max-w-2xl">
               Cost individual accompaniments, hire authentic local cooks for events, and assemble precise client quotes.
             </p>
           </div>
@@ -182,22 +184,22 @@ export const DishBuilderScreen: React.FC<DishBuilderScreenProps> = ({
             <button
               type="button"
               onClick={toggleManagerMode}
-              className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-2xl text-xs font-black transition-all cursor-pointer border-2 ${
+              className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-black transition-all cursor-pointer border ${
                 isManagerMode
-                  ? 'bg-black text-[#fbf304] border-black shadow-md ring-2 ring-black/20'
-                  : 'bg-white text-stone-950 hover:bg-stone-100 border-black shadow-xs'
+                  ? 'bg-amber-400 text-emerald-950 border-amber-300 shadow-lg ring-2 ring-amber-400/30'
+                  : 'bg-[#06261A] text-white hover:bg-[#093826] border-emerald-700/80 shadow-xs'
               }`}
               title="Toggle App Manager mode to view full contact numbers and manage booking inquiries"
             >
               {isManagerMode ? (
                 <>
-                  <ShieldCheck className="w-4 h-4 text-[#fbf304]" />
+                  <ShieldCheck className="w-4 h-4 text-emerald-950" />
                   <span>App Manager Mode: ON</span>
-                  <span className="w-2 h-2 rounded-full bg-[#fbf304] animate-ping"></span>
+                  <span className="w-2 h-2 rounded-full bg-emerald-950 animate-ping"></span>
                 </>
               ) : (
                 <>
-                  <Shield className="w-4 h-4 text-stone-700" />
+                  <Shield className="w-4 h-4 text-emerald-300" />
                   <span>Manager Mode (Off)</span>
                 </>
               )}
@@ -208,11 +210,11 @@ export const DishBuilderScreen: React.FC<DishBuilderScreenProps> = ({
               <button
                 type="button"
                 onClick={() => setIsManagerInboxOpen(true)}
-                className="relative inline-flex items-center gap-2 px-4 py-2 rounded-2xl text-xs font-black bg-stone-900 text-white hover:bg-black transition-all shadow-md cursor-pointer border border-stone-700"
+                className="relative inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-black bg-[#06261A] text-white hover:bg-black transition-all shadow-md cursor-pointer border border-emerald-700"
               >
                 <MessageSquare className="w-4 h-4 text-amber-400" />
                 <span>Booking Inquiries</span>
-                <span className="px-1.5 py-0.2 rounded-full text-[10px] font-black bg-amber-400 text-stone-950">
+                <span className="px-1.5 py-0.2 rounded-full text-[10px] font-black bg-amber-400 text-emerald-950">
                   {inquiries.length}
                 </span>
                 {pendingInquiriesCount > 0 && (
@@ -227,14 +229,14 @@ export const DishBuilderScreen: React.FC<DishBuilderScreenProps> = ({
 
         {/* Manager Mode Banner */}
         {isManagerMode && (
-          <div className="p-3.5 bg-black/90 text-white rounded-2xl border-2 border-black flex items-center justify-between gap-3 text-xs shadow-md animate-in fade-in duration-200">
+          <div className="p-4 bg-[#06261A] text-white rounded-2xl border border-emerald-700/80 flex items-center justify-between gap-3 text-xs shadow-md animate-in fade-in duration-200">
             <div className="flex items-center gap-2.5">
-              <ShieldCheck className="w-5 h-5 text-[#fbf304] shrink-0" />
+              <ShieldCheck className="w-5 h-5 text-amber-400 shrink-0" />
               <div>
-                <span className="font-black text-[#fbf304] block">
+                <span className="font-black text-amber-300 block">
                   🛡️ App Manager Mode Active
                 </span>
-                <span className="text-[11px] text-stone-200 font-medium">
+                <span className="text-[11px] text-emerald-200 font-medium">
                   Full unmasked phone numbers, email details, and client booking requests are unlocked.
                 </span>
               </div>
@@ -242,7 +244,7 @@ export const DishBuilderScreen: React.FC<DishBuilderScreenProps> = ({
             <button
               type="button"
               onClick={() => setIsManagerInboxOpen(true)}
-              className="px-3 py-1 text-[11px] font-black text-black bg-[#fbf304] hover:bg-yellow-300 border border-black rounded-xl transition-colors cursor-pointer shrink-0"
+              className="px-3.5 py-1.5 text-[11px] font-black text-emerald-950 bg-amber-400 hover:bg-amber-300 border border-amber-500 rounded-xl transition-colors cursor-pointer shrink-0"
             >
               Open Inbox ({inquiries.length})
             </button>
@@ -251,7 +253,7 @@ export const DishBuilderScreen: React.FC<DishBuilderScreenProps> = ({
 
         {/* Main Dish Name Input */}
         <div className="space-y-2">
-          <label className="block text-xs font-black text-black uppercase tracking-wider">
+          <label className="block text-xs font-black text-emerald-200 uppercase tracking-wider">
             Main Dish / Event Menu Title
           </label>
           <div className="relative">
@@ -260,13 +262,13 @@ export const DishBuilderScreen: React.FC<DishBuilderScreenProps> = ({
               value={dishName}
               onChange={(e) => setDishName(e.target.value)}
               placeholder="e.g. Traditional Durban Curry Platter or Inyama Yenhloko Feast"
-              className="w-full text-base sm:text-lg font-black text-black bg-white border-2 border-black rounded-2xl px-4 py-3.5 focus:border-black focus:ring-4 focus:ring-black/15 focus:outline-none shadow-md transition-all placeholder:text-stone-400"
+              className="w-full text-base sm:text-lg font-black text-stone-950 bg-white border-2 border-emerald-950 rounded-2xl px-4 py-3.5 focus:border-amber-400 focus:ring-4 focus:ring-amber-400/20 focus:outline-none shadow-md transition-all placeholder:text-stone-400"
             />
             {dishName && (
               <button
                 type="button"
                 onClick={() => setDishName('')}
-                className="absolute right-3.5 top-4 text-stone-500 hover:text-black cursor-pointer p-1"
+                className="absolute right-3.5 top-4 text-stone-400 hover:text-stone-900 cursor-pointer p-1"
                 title="Clear dish title"
               >
                 <X className="w-4 h-4 stroke-[3]" />
@@ -277,40 +279,67 @@ export const DishBuilderScreen: React.FC<DishBuilderScreenProps> = ({
 
         {/* Accompaniments Setup Section */}
         <div className="space-y-3 pt-2">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
-            <label className="block text-xs font-black text-black uppercase tracking-wider">
-              Selected Accompaniments & Side Dishes ({accompanimentNames.length})
-            </label>
-            <span className="text-[11px] font-bold text-stone-900">
-              Each side dish receives its own dedicated costing calculator in Step 2
-            </span>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div>
+              <label className="block text-xs font-black text-emerald-200 uppercase tracking-wider">
+                Selected Accompaniments & Side Dishes ({accompanimentNames.length})
+              </label>
+              <span className="text-[11px] font-medium text-emerald-200/90">
+                Each side dish receives its own dedicated costing calculator in Step 2
+              </span>
+            </div>
+
+            {!showAddInput && (
+              <button
+                type="button"
+                onClick={() => setShowAddInput(true)}
+                className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-black text-emerald-950 bg-amber-400 hover:bg-amber-300 rounded-xl transition-all shadow-md shrink-0 cursor-pointer self-start sm:self-auto active:scale-95"
+              >
+                <Plus className="w-3.5 h-3.5 stroke-[3]" />
+                <span>+ Add Item</span>
+              </button>
+            )}
           </div>
 
-          {/* Add Accompaniment Form */}
-          <form onSubmit={handleAddAccompaniment} className="flex gap-2">
-            <input
-              type="text"
-              value={newAccInput}
-              onChange={(e) => setNewAccInput(e.target.value)}
-              placeholder="Add accompaniment (e.g. Steamed Dombolo, Spicy Chakalaka, Yellow Rice)..."
-              className="flex-1 text-xs font-bold text-black bg-white border-2 border-black rounded-xl px-3.5 py-2.5 focus:border-black focus:ring-2 focus:ring-black/15 focus:outline-none placeholder:text-stone-500 shadow-sm"
-            />
-            <button
-              type="submit"
-              disabled={!newAccInput.trim()}
-              className="inline-flex items-center gap-1.5 px-5 py-2.5 text-xs font-black text-white bg-black hover:bg-stone-800 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl transition-all shadow-md shrink-0 cursor-pointer"
-            >
-              <Plus className="w-3.5 h-3.5 stroke-[3]" />
-              <span>Add Item</span>
-            </button>
-          </form>
+          {/* Add Accompaniment Form - Hidden by default, only shown if "Add Item" button is pressed */}
+          {showAddInput && (
+            <form onSubmit={handleAddAccompaniment} className="flex gap-2 items-center animate-in fade-in zoom-in-98 duration-150">
+              <input
+                type="text"
+                autoFocus
+                value={newAccInput}
+                onChange={(e) => setNewAccInput(e.target.value)}
+                placeholder="Add accompaniment (e.g. Steamed Dombolo, Spicy Chakalaka, Yellow Rice)..."
+                className="flex-1 text-xs font-bold text-stone-950 bg-white border-2 border-emerald-950 rounded-xl px-3.5 py-2.5 focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 focus:outline-none placeholder:text-stone-500 shadow-sm"
+              />
+              <button
+                type="submit"
+                disabled={!newAccInput.trim()}
+                className="inline-flex items-center gap-1.5 px-5 py-2.5 text-xs font-black text-emerald-950 bg-amber-400 hover:bg-amber-300 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl transition-all shadow-md shrink-0 cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5 stroke-[3]" />
+                <span>Add</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAddInput(false);
+                  setNewAccInput('');
+                }}
+                className="p-2.5 text-emerald-200 hover:text-white bg-[#06261A] hover:bg-[#093826] border border-emerald-700/80 rounded-xl transition-colors cursor-pointer"
+                title="Cancel"
+              >
+                <X className="w-4 h-4 stroke-[3]" />
+              </button>
+            </form>
+          )}
 
           {/* Selected Chips */}
           <div className="flex flex-wrap gap-2 pt-1">
             {accompanimentNames.map((name, index) => (
               <span
                 key={`${name}-${index}`}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-black bg-white text-stone-950 border-2 border-black rounded-xl shadow-xs"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-black bg-white text-stone-950 border-2 border-emerald-950 rounded-xl shadow-xs"
               >
                 <span>{name}</span>
                 <button
@@ -323,7 +352,7 @@ export const DishBuilderScreen: React.FC<DishBuilderScreenProps> = ({
               </span>
             ))}
             {accompanimentNames.length === 0 && (
-              <div className="p-3 bg-white/70 border border-black/30 rounded-xl text-xs text-stone-800 font-semibold">
+              <div className="p-3.5 bg-[#06261A]/90 border border-emerald-700/60 rounded-xl text-xs text-emerald-200 font-semibold">
                 No accompaniments added yet. Type a side dish above or load a recipe from the library!
               </div>
             )}
