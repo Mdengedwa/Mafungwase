@@ -99,17 +99,17 @@ export const ManagerPasswordModal: React.FC<ManagerPasswordModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-5 border border-stone-200 animate-in fade-in zoom-in-95 duration-200">
-        <div className="flex items-center justify-between pb-3 border-b border-stone-100">
+      <div className="bg-[#0B3B28] text-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-5 border-2 border-emerald-900 animate-in fade-in zoom-in-95 duration-200">
+        <div className="flex items-center justify-between pb-3 border-b border-emerald-900/80">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-amber-100 flex items-center justify-center text-amber-900 shadow-2xs">
+            <div className="w-8 h-8 rounded-xl bg-amber-400/20 border border-amber-400/30 flex items-center justify-center text-amber-300 shadow-2xs">
               <Lock className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="text-base font-black text-stone-900">
+              <h3 className="text-base font-black text-white">
                 {isChangingPassword ? 'Update Manager Password' : 'App Manager Authentication'}
               </h3>
-              <p className="text-[11px] text-stone-500 font-medium">
+              <p className="text-[11px] text-emerald-200 font-medium">
                 {isChangingPassword
                   ? 'Set a custom secret password for manager access'
                   : 'Enter password to access protected manager controls'}
@@ -119,22 +119,22 @@ export const ManagerPasswordModal: React.FC<ManagerPasswordModalProps> = ({
           <button
             type="button"
             onClick={handleModalClose}
-            className="text-stone-400 hover:text-stone-700 p-1.5 rounded-full hover:bg-stone-100 cursor-pointer"
+            className="text-emerald-300 hover:text-white p-1.5 rounded-xl hover:bg-[#06261A] transition-colors cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {errorMessage && (
-          <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl flex items-center gap-2 text-xs text-rose-800 font-semibold animate-in shake duration-200">
-            <ShieldAlert className="w-4 h-4 text-rose-600 shrink-0" />
+          <div className="p-3 bg-rose-950/80 border border-rose-500/60 rounded-xl flex items-center gap-2 text-xs text-rose-200 font-semibold animate-in shake duration-200">
+            <ShieldAlert className="w-4 h-4 text-rose-400 shrink-0" />
             <span>{errorMessage}</span>
           </div>
         )}
 
         {changeSuccessMessage && (
-          <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center gap-2 text-xs text-emerald-800 font-bold">
-            <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+          <div className="p-3 bg-emerald-900/60 border border-emerald-500/60 rounded-xl flex items-center gap-2 text-xs text-emerald-200 font-bold">
+            <Check className="w-4 h-4 text-amber-300 shrink-0" />
             <span>{changeSuccessMessage}</span>
           </div>
         )}
@@ -142,7 +142,7 @@ export const ManagerPasswordModal: React.FC<ManagerPasswordModalProps> = ({
         {!isChangingPassword ? (
           <form onSubmit={handleUnlock} className="space-y-4">
             <div>
-              <label className="block text-xs font-black text-stone-800 mb-1.5">
+              <label className="block text-xs font-black text-emerald-100 mb-1.5">
                 Manager Password
               </label>
               <div className="relative">
@@ -156,12 +156,12 @@ export const ManagerPasswordModal: React.FC<ManagerPasswordModalProps> = ({
                     setPasswordInput(e.target.value);
                     if (errorMessage) setErrorMessage(null);
                   }}
-                  className="w-full pl-3.5 pr-10 py-2.5 text-xs bg-stone-50 border border-stone-300 rounded-xl focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-400/30 font-semibold text-stone-900"
+                  className="w-full pl-3.5 pr-10 py-2.5 text-xs bg-[#06261A] border border-emerald-800/80 rounded-xl focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-400/20 font-semibold text-white placeholder:text-emerald-400/50"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-700 p-1 cursor-pointer"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-400 hover:text-white p-1 cursor-pointer"
                   title={showPassword ? 'Hide password' : 'Show password'}
                 >
                   {showPassword ? (
@@ -180,26 +180,26 @@ export const ManagerPasswordModal: React.FC<ManagerPasswordModalProps> = ({
                   setIsChangingPassword(true);
                   setErrorMessage(null);
                 }}
-                className="text-stone-500 hover:text-stone-800 font-bold flex items-center gap-1 cursor-pointer underline underline-offset-2"
+                className="text-emerald-300 hover:text-amber-300 font-bold flex items-center gap-1 cursor-pointer underline underline-offset-2 transition-colors"
               >
-                <KeyRound className="w-3 h-3 text-stone-400" />
+                <KeyRound className="w-3 h-3 text-emerald-400" />
                 <span>Change Password</span>
               </button>
             </div>
 
-            <div className="flex justify-end gap-2 pt-3 border-t border-stone-100">
+            <div className="flex justify-end gap-2 pt-3 border-t border-emerald-900/80">
               <button
                 type="button"
                 onClick={handleModalClose}
-                className="px-4 py-2 text-xs font-bold text-stone-600 hover:bg-stone-100 rounded-xl cursor-pointer"
+                className="px-4 py-2 text-xs font-bold text-emerald-200 hover:text-white hover:bg-[#06261A] rounded-xl cursor-pointer transition-colors"
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className="px-5 py-2.5 text-xs font-black text-stone-950 bg-amber-400 hover:bg-amber-300 rounded-xl shadow-md transition-all cursor-pointer flex items-center gap-1.5"
+                className="px-5 py-2.5 text-xs font-black text-black bg-[#fbf304] hover:bg-yellow-300 border-2 border-black rounded-xl shadow-md transition-all cursor-pointer flex items-center gap-1.5"
               >
-                <Lock className="w-3.5 h-3.5" />
+                <Lock className="w-3.5 h-3.5 stroke-[2.5]" />
                 <span>Unlock Manager Mode</span>
               </button>
             </div>
@@ -207,7 +207,7 @@ export const ManagerPasswordModal: React.FC<ManagerPasswordModalProps> = ({
         ) : (
           <form onSubmit={handleChangePassword} className="space-y-3.5 text-xs">
             <div>
-              <label className="block font-black text-stone-800 mb-1">
+              <label className="block font-black text-emerald-100 mb-1">
                 Current Password *
               </label>
               <input
@@ -216,12 +216,12 @@ export const ManagerPasswordModal: React.FC<ManagerPasswordModalProps> = ({
                 placeholder="Enter current password"
                 value={currentPwdInput}
                 onChange={(e) => setCurrentPwdInput(e.target.value)}
-                className="w-full p-2.5 border border-stone-300 rounded-xl focus:border-amber-500 focus:outline-none font-semibold text-stone-900"
+                className="w-full p-2.5 bg-[#06261A] border border-emerald-800/80 rounded-xl focus:border-amber-400 focus:outline-none font-semibold text-white placeholder:text-emerald-400/50"
               />
             </div>
 
             <div>
-              <label className="block font-black text-stone-800 mb-1">
+              <label className="block font-black text-emerald-100 mb-1">
                 New Password *
               </label>
               <input
@@ -230,12 +230,12 @@ export const ManagerPasswordModal: React.FC<ManagerPasswordModalProps> = ({
                 placeholder="Enter new password"
                 value={newPwdInput}
                 onChange={(e) => setNewPwdInput(e.target.value)}
-                className="w-full p-2.5 border border-stone-300 rounded-xl focus:border-amber-500 focus:outline-none font-semibold text-stone-900"
+                className="w-full p-2.5 bg-[#06261A] border border-emerald-800/80 rounded-xl focus:border-amber-400 focus:outline-none font-semibold text-white placeholder:text-emerald-400/50"
               />
             </div>
 
             <div>
-              <label className="block font-black text-stone-800 mb-1">
+              <label className="block font-black text-emerald-100 mb-1">
                 Confirm New Password *
               </label>
               <input
@@ -244,24 +244,24 @@ export const ManagerPasswordModal: React.FC<ManagerPasswordModalProps> = ({
                 placeholder="Confirm new password"
                 value={confirmPwdInput}
                 onChange={(e) => setConfirmPwdInput(e.target.value)}
-                className="w-full p-2.5 border border-stone-300 rounded-xl focus:border-amber-500 focus:outline-none font-semibold text-stone-900"
+                className="w-full p-2.5 bg-[#06261A] border border-emerald-800/80 rounded-xl focus:border-amber-400 focus:outline-none font-semibold text-white placeholder:text-emerald-400/50"
               />
             </div>
 
-            <div className="flex justify-end gap-2 pt-3 border-t border-stone-100">
+            <div className="flex justify-end gap-2 pt-3 border-t border-emerald-900/80">
               <button
                 type="button"
                 onClick={() => {
                   setIsChangingPassword(false);
                   setErrorMessage(null);
                 }}
-                className="px-4 py-2 font-bold text-stone-600 hover:bg-stone-100 rounded-xl cursor-pointer"
+                className="px-4 py-2 font-bold text-emerald-200 hover:text-white hover:bg-[#06261A] rounded-xl cursor-pointer transition-colors"
               >
                 Back
               </button>
               <button
                 type="submit"
-                className="px-5 py-2.5 font-black text-stone-950 bg-amber-400 hover:bg-amber-300 rounded-xl shadow-md transition-all cursor-pointer"
+                className="px-5 py-2.5 font-black text-black bg-[#fbf304] hover:bg-yellow-300 border-2 border-black rounded-xl shadow-md transition-all cursor-pointer"
               >
                 Save New Password
               </button>

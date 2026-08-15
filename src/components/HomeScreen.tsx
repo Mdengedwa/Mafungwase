@@ -19,13 +19,14 @@ import {
   Lock,
   Phone,
   MessageSquare,
-  BadgeDollarSign,
   UserCheck,
+  Layers,
 } from 'lucide-react';
 import {
   DEFAULT_PRESET_SUGGESTIONS,
   PresetSuggestion,
   ChefBookingInquiry,
+  filterOutIncoherentRecipes,
 } from '../data/defaultPresetSuggestions';
 import { HireChefModal } from './HireChefModal';
 import { ManagerInquiryModal } from './ManagerInquiryModal';
@@ -37,7 +38,7 @@ interface HomeScreenProps {
   setDishName: (name: string) => void;
   accompanimentNames: string[];
   setAccompanimentNames: (names: string[]) => void;
-  onContinue: () => void;
+  onNavigateToDishBuilder: () => void;
   logoUrl: string;
 }
 
@@ -50,10 +51,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   setDishName,
   accompanimentNames,
   setAccompanimentNames,
-  onContinue,
+  onNavigateToDishBuilder,
 }) => {
-  const [newAccInput, setNewAccInput] = useState('');
-
   // App Manager Mode State (persisted)
   const [isManagerMode, setIsManagerMode] = useState<boolean>(() => {
     if (typeof window !== 'undefined') {
@@ -65,7 +64,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
   const toggleManagerMode = () => {
     if (isManagerMode) {
-      // Turn off directly
       setIsManagerMode(false);
       try {
         localStorage.setItem(MANAGER_MODE_STORAGE_KEY, 'false');
@@ -74,7 +72,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       }
       setToastMessage('App Manager Mode deactivated.');
     } else {
-      // Require password before enabling
       setIsPasswordModalOpen(true);
     }
   };
@@ -100,7 +97,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     } catch (e) {
       console.error('Failed to parse inquiries:', e);
     }
-    // Default sample inquiries for instant manager testing
     return [
       {
         id: 'inq-sample-1',
@@ -174,7 +170,14 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) {
-          return parsed;
+          const cleaned = filterOutIncoherentRecipes(parsed);
+          // Keep localStorage purged of incoherent/test recipes
+          try {
+            localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(cleaned));
+          } catch (e) {
+            console.error('Failed to update cleaned presets', e);
+          }
+          return cleaned;
         }
       }
     } catch (e) {
@@ -276,23 +279,16 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     return matchesCat && matchesSearch;
   });
 
-  const handleAddAccompaniment = (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    const trimmed = newAccInput.trim();
-    if (trimmed && !accompanimentNames.includes(trimmed)) {
-      setAccompanimentNames([...accompanimentNames, trimmed]);
-      setNewAccInput('');
-    }
-  };
-
-  const handleRemoveAccompaniment = (index: number) => {
-    setAccompanimentNames(accompanimentNames.filter((_, i) => i !== index));
-  };
-
-  const handleLoadPreset = (preset: PresetSuggestion) => {
+  const handleLoadPreset = (preset: PresetSuggestion, navigateDirectly = true) => {
     setDishName(preset.title);
     setAccompanimentNames([...preset.accompaniments]);
     setSelectedPresetId(preset.id);
+    setToastMessage(`✓ "${preset.title}" loaded! Moving to Dish Builder (Step 1)...`);
+    if (navigateDirectly) {
+      setTimeout(() => {
+        onNavigateToDishBuilder();
+      }, 150);
+    }
   };
 
   // Open Add Modal
@@ -357,7 +353,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     e.preventDefault();
     if (!formTitle.trim()) return;
 
-    // If available for hire, contact details and day rate are required
     if (formAvailableToCook === 'Yes') {
       if (!formContactDetails.trim() || !formDayRate.trim()) {
         return;
@@ -407,17 +402,15 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       setPresets((prev) => [newPreset, ...prev]);
     }
 
-    // Populate Dish Name & Accompaniments on the Dish Setup page
     setDishName(formTitle.trim());
     setAccompanimentNames(parsedAccs);
     setSelectedPresetId(targetPresetId);
     setIsAddModalOpen(false);
-    setToastMessage(`✓ Dish "${formTitle.trim()}" loaded into Dish Setup with ${parsedAccs.length} accompaniments!`);
+    setToastMessage(`✓ Dish "${formTitle.trim()}" saved and loaded!`);
 
-    // Smooth scroll down to the Dish Setup section so the user sees it populated
     setTimeout(() => {
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }, 50);
+      onNavigateToDishBuilder();
+    }, 200);
   };
 
   // Delete Preset
@@ -501,176 +494,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         </div>
       )}
 
-      {/* Hero Dish Setup Banner */}
-      <div
-        style={{
-          backgroundColor: '#fbf304',
-          fontFamily: "'Futura', 'Futura PT', 'Futura-Medium', 'Futura-Bold', 'Jost', 'Century Gothic', -apple-system, sans-serif",
-        }}
-        className="font-futura rounded-3xl p-6 sm:p-8 border-2 border-black shadow-md space-y-6"
-      >
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b-2 border-black/15">
-          <div className="space-y-1">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-black text-[#fbf304] border border-black shadow-xs">
-              <ChefHat className="w-3.5 h-3.5 text-[#fbf304]" />
-              Step 1 of 4 • Recipe & Menu Setup
-            </span>
-            <h1 className="text-2xl sm:text-3xl font-black text-black tracking-tight drop-shadow-xs">
-              Catering Dish & Accompaniment Builder
-            </h1>
-            <p className="text-xs sm:text-sm text-stone-900 font-bold">
-              Cost individual accompaniments, hire authentic local cooks for events, and assemble precise client quotes.
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2.5 flex-wrap">
-            {/* App Manager Mode Switch */}
-            <button
-              type="button"
-              onClick={toggleManagerMode}
-              className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-2xl text-xs font-black transition-all cursor-pointer border-2 ${
-                isManagerMode
-                  ? 'bg-black text-[#fbf304] border-black shadow-md ring-2 ring-black/20'
-                  : 'bg-white text-stone-950 hover:bg-stone-100 border-black shadow-xs'
-              }`}
-              title="Toggle App Manager mode to view full contact numbers and manage booking inquiries"
-            >
-              {isManagerMode ? (
-                <>
-                  <ShieldCheck className="w-4 h-4 text-[#fbf304]" />
-                  <span>App Manager Mode: ON</span>
-                  <span className="w-2 h-2 rounded-full bg-[#fbf304] animate-ping"></span>
-                </>
-              ) : (
-                <>
-                  <Shield className="w-4 h-4 text-stone-700" />
-                  <span>Manager Mode (Off)</span>
-                </>
-              )}
-            </button>
-
-            {/* Manager Inquiries Inbox Button (Visible when Manager mode is active or inquiries exist) */}
-            {isManagerMode && (
-              <button
-                type="button"
-                onClick={() => setIsManagerInboxOpen(true)}
-                className="relative inline-flex items-center gap-2 px-4 py-2 rounded-2xl text-xs font-black bg-stone-900 text-white hover:bg-black transition-all shadow-md cursor-pointer border border-stone-700"
-              >
-                <MessageSquare className="w-4 h-4 text-amber-400" />
-                <span>Booking Inquiries</span>
-                <span className="px-1.5 py-0.2 rounded-full text-[10px] font-black bg-amber-400 text-stone-950">
-                  {inquiries.length}
-                </span>
-                {pendingInquiriesCount > 0 && (
-                  <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-rose-500 text-white rounded-full text-[9px] font-black flex items-center justify-center animate-bounce shadow-xs">
-                    {pendingInquiriesCount}
-                  </span>
-                )}
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Manager Mode Banner */}
-        {isManagerMode && (
-          <div className="p-3.5 bg-black/90 text-white rounded-2xl border-2 border-black flex items-center justify-between gap-3 text-xs shadow-md animate-in fade-in duration-200">
-            <div className="flex items-center gap-2.5">
-              <ShieldCheck className="w-5 h-5 text-[#fbf304] shrink-0" />
-              <div>
-                <span className="font-black text-[#fbf304] block">
-                  🛡️ App Manager Mode Active
-                </span>
-                <span className="text-[11px] text-stone-200 font-medium">
-                  Full unmasked phone numbers, email details, and client booking requests are unlocked.
-                </span>
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={() => setIsManagerInboxOpen(true)}
-              className="px-3 py-1 text-[11px] font-black text-black bg-[#fbf304] hover:bg-yellow-300 border border-black rounded-xl transition-colors cursor-pointer shrink-0"
-            >
-              Open Inbox ({inquiries.length})
-            </button>
-          </div>
-        )}
-
-        {/* Main Dish Name Input */}
-        <div className="space-y-2">
-          <label className="block text-xs font-black text-black uppercase tracking-wider">
-            Main Dish / Event Menu Title
-          </label>
-          <div className="relative">
-            <input
-              type="text"
-              value={dishName}
-              onChange={(e) => setDishName(e.target.value)}
-              placeholder="e.g. Traditional Durban Curry Platter or Inyama Yenhloko Feast"
-              className="w-full text-base sm:text-lg font-black text-black bg-white border-2 border-black rounded-2xl px-4 py-3.5 focus:border-black focus:ring-4 focus:ring-black/15 focus:outline-none shadow-md transition-all placeholder:text-stone-400"
-            />
-            {dishName && (
-              <button
-                type="button"
-                onClick={() => setDishName('')}
-                className="absolute right-3.5 top-4 text-stone-500 hover:text-black cursor-pointer p-1"
-              >
-                <X className="w-4 h-4 stroke-[3]" />
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Accompaniments Setup Section */}
-        <div className="space-y-3 pt-2">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
-            <label className="block text-xs font-black text-black uppercase tracking-wider">
-              Selected Accompaniments & Side Dishes ({accompanimentNames.length})
-            </label>
-            <span className="text-[11px] font-bold text-stone-900">
-              Each side dish receives its own dedicated costing calculator in Step 2
-            </span>
-          </div>
-
-          {/* Add Accompaniment Form */}
-          <form onSubmit={handleAddAccompaniment} className="flex gap-2">
-            <input
-              type="text"
-              value={newAccInput}
-              onChange={(e) => setNewAccInput(e.target.value)}
-              placeholder="Add accompaniment (e.g. Steamed Dombolo, Spicy Chakalaka, Yellow Rice)..."
-              className="flex-1 text-xs font-bold text-black bg-white border-2 border-black rounded-xl px-3.5 py-2.5 focus:border-black focus:ring-2 focus:ring-black/15 focus:outline-none placeholder:text-stone-500 shadow-sm"
-            />
-            <button
-              type="submit"
-              disabled={!newAccInput.trim()}
-              className="inline-flex items-center gap-1.5 px-5 py-2.5 text-xs font-black text-white bg-black hover:bg-stone-800 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl transition-all shadow-md shrink-0 cursor-pointer"
-            >
-              <Plus className="w-3.5 h-3.5 stroke-[3]" />
-              <span>Add Item</span>
-            </button>
-          </form>
-
-          {/* Selected Chips */}
-          <div className="flex flex-wrap gap-2 pt-1">
-            {accompanimentNames.map((name, index) => (
-              <span
-                key={`${name}-${index}`}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-black bg-white text-stone-950 border-2 border-black rounded-xl shadow-xs"
-              >
-                <span>{name}</span>
-                <button
-                  type="button"
-                  onClick={() => handleRemoveAccompaniment(index)}
-                  className="p-0.5 text-stone-500 hover:text-red-600 rounded-md hover:bg-stone-100 transition-colors cursor-pointer"
-                >
-                  <X className="w-3 h-3 stroke-[2.5]" />
-                </button>
-              </span>
-            ))}
-          </div>
-        </div>
-      </div>
-
       {/* Recipe Suggestions Library with Delicious Feast Image Background */}
       <div className="relative overflow-hidden rounded-3xl p-6 sm:p-8 border-2 border-black shadow-xl space-y-6">
         {/* Delicious Meal Background Image */}
@@ -690,18 +513,59 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             <div>
               <div className="flex items-center gap-2.5">
                 <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight drop-shadow-md">
-                  Recipe Library & Catering Menus
+                  Catering Recipe Catalog
                 </h2>
                 <span className="px-2.5 py-0.5 text-[11px] font-black rounded-full bg-amber-400 text-stone-950 shadow-md border border-amber-300">
                   {presets.length} Menus
                 </span>
               </div>
               <p className="text-xs text-stone-200 font-medium mt-1 drop-shadow-sm">
-                Select any dish suggestion to load its accompaniments, or hire experienced local cooks for weddings and parties.
+                Click any dish to load it into the <strong>Dish Builder (Step 1)</strong>, or hire cooks directly for catering events.
               </p>
             </div>
 
             <div className="flex items-center gap-2 flex-wrap">
+              {/* App Manager Mode Switch */}
+              <button
+                type="button"
+                onClick={toggleManagerMode}
+                className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-black transition-all cursor-pointer border ${
+                  isManagerMode
+                    ? 'bg-amber-400 text-stone-950 border-amber-500 shadow-md'
+                    : 'bg-stone-900/80 text-stone-200 hover:bg-stone-800 border-stone-700 shadow-xs'
+                }`}
+                title="Toggle App Manager mode"
+              >
+                {isManagerMode ? (
+                  <>
+                    <ShieldCheck className="w-3.5 h-3.5 text-stone-950" />
+                    <span>Manager: ON</span>
+                  </>
+                ) : (
+                  <>
+                    <Shield className="w-3.5 h-3.5 text-stone-400" />
+                    <span>Manager Mode</span>
+                  </>
+                )}
+              </button>
+
+              {/* Manager Inquiries Inbox */}
+              {isManagerMode && (
+                <button
+                  type="button"
+                  onClick={() => setIsManagerInboxOpen(true)}
+                  className="relative inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-black bg-stone-900 text-white hover:bg-black border border-stone-700 cursor-pointer shadow-md"
+                >
+                  <MessageSquare className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Inbox ({inquiries.length})</span>
+                  {pendingInquiriesCount > 0 && (
+                    <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-rose-500 text-white rounded-full text-[8px] font-black flex items-center justify-center">
+                      {pendingInquiriesCount}
+                    </span>
+                  )}
+                </button>
+              )}
+
               <button
                 type="button"
                 onClick={openAddModal}
@@ -809,7 +673,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                   return (
                     <div
                       key={p.id}
-                      onClick={() => handleLoadPreset(p)}
+                      onClick={() => handleLoadPreset(p, true)}
                       className={`group relative text-left p-4 rounded-2xl transition-all cursor-pointer flex flex-col justify-between border-2 ${
                         isSelected
                           ? 'bg-emerald-50 border-emerald-800 ring-4 ring-emerald-400/40 shadow-xl scale-[1.01]'
@@ -925,7 +789,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                         <div className="flex items-center justify-between text-[10px] text-emerald-800 font-extrabold">
                           <span>{p.accompaniments.length} Accompaniments</span>
                           <span className="group-hover:translate-x-0.5 transition-transform flex items-center gap-0.5 text-emerald-800 font-black">
-                            {isSelected ? 'Loaded ✓' : 'Load Menu \u2192'}
+                            {isSelected ? 'Loaded ✓' : 'Load into Dish Builder \u2192'}
                           </span>
                         </div>
 
@@ -977,47 +841,19 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         </div>
       </div>
 
-      {/* Sticky Bottom Action Bar Card - Always visible throughout scrolling */}
-      <div className="sticky bottom-4 z-30 bg-white/95 backdrop-blur-md rounded-3xl p-4 sm:p-5 border-2 border-black shadow-xl flex flex-col sm:flex-row items-center justify-between gap-3 transition-all">
-        <div className="flex items-center gap-3 w-full sm:w-auto min-w-0">
-          <div className="w-10 h-10 rounded-2xl bg-emerald-100 border border-emerald-300/80 flex items-center justify-center shrink-0">
-            <UtensilsCrossed className="w-5 h-5 text-emerald-800" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="font-extrabold text-stone-900 text-sm sm:text-base truncate">
-              {dishName.trim() || 'Custom Platter'}
-            </div>
-            <div className="text-xs text-stone-500 font-semibold flex items-center gap-1.5">
-              <span className="inline-block w-2 h-2 rounded-full bg-emerald-600 animate-pulse"></span>
-              <span>{accompanimentNames.length} Accompaniments Listed</span>
-            </div>
-          </div>
-        </div>
-
-        <button
-          type="button"
-          onClick={onContinue}
-          disabled={!dishName.trim() || accompanimentNames.length === 0}
-          className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-7 py-3.5 text-sm font-extrabold text-white bg-emerald-700 hover:bg-emerald-800 disabled:opacity-50 disabled:cursor-not-allowed rounded-2xl shadow-md transition-all transform active:scale-98 cursor-pointer shrink-0"
-        >
-          <span>Proceed to Accompaniment Calculators</span>
-          <ArrowRight className="w-4 h-4" />
-        </button>
-      </div>
-
       {/* Add / Edit Recipe Modal */}
       {isAddModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl p-6 sm:p-7 max-w-xl w-full border-2 border-black shadow-2xl space-y-4 max-h-[92vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-3 border-b border-stone-100">
-              <h3 className="text-base font-black text-stone-900 flex items-center gap-2">
-                <FolderPlus className="w-5 h-5 text-emerald-700" />
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-[#0B3B28] text-white rounded-3xl p-6 sm:p-7 max-w-xl w-full border-2 border-emerald-900 shadow-2xl space-y-4 max-h-[92vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-emerald-900/80">
+              <h3 className="text-base font-black text-white flex items-center gap-2">
+                <FolderPlus className="w-5 h-5 text-amber-300" />
                 {editingPreset ? 'Edit Recipe' : 'Add Custom Recipe'}
               </h3>
               <button
                 type="button"
                 onClick={() => setIsAddModalOpen(false)}
-                className="p-1 text-stone-400 hover:text-stone-700 hover:bg-stone-100 rounded-lg cursor-pointer"
+                className="p-1.5 text-emerald-300 hover:text-white hover:bg-[#06261A] rounded-xl transition-colors cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -1026,7 +862,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             <form onSubmit={handleSavePreset} className="space-y-4 text-xs">
               {/* Dish Title */}
               <div>
-                <label className="block font-extrabold text-stone-800 mb-1">
+                <label className="block font-extrabold text-emerald-100 mb-1">
                   Dish / Menu Title *
                 </label>
                 <input
@@ -1035,13 +871,13 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                   placeholder="e.g. Traditional Sunday Roast Platter or Inyama Yenhloko Feast"
                   value={formTitle}
                   onChange={(e) => setFormTitle(e.target.value)}
-                  className="w-full p-2.5 border border-stone-300 rounded-xl focus:border-emerald-700 focus:outline-none font-semibold text-stone-900"
+                  className="w-full p-2.5 bg-[#06261A] border border-emerald-800/80 rounded-xl focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 focus:outline-none font-semibold text-white placeholder:text-emerald-400/50"
                 />
               </div>
 
               {/* Category */}
               <div>
-                <label className="block font-extrabold text-stone-800 mb-1">
+                <label className="block font-extrabold text-emerald-100 mb-1">
                   Category
                 </label>
                 <input
@@ -1049,7 +885,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                   placeholder="e.g. Zulu, Traditional South African, Curries & Stews"
                   value={formCategory}
                   onChange={(e) => setFormCategory(e.target.value)}
-                  className="w-full p-2.5 border border-stone-300 rounded-xl focus:border-emerald-700 focus:outline-none font-medium text-stone-800"
+                  className="w-full p-2.5 bg-[#06261A] border border-emerald-800/80 rounded-xl focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 focus:outline-none font-medium text-white placeholder:text-emerald-400/50"
                 />
                 <div className="flex flex-wrap gap-1.5 mt-2">
                   {[
@@ -1065,10 +901,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                       key={suggestedCat}
                       type="button"
                       onClick={() => setFormCategory(suggestedCat)}
-                      className={`text-[10px] px-2 py-1 rounded-lg border font-semibold transition-all cursor-pointer ${
+                      className={`text-[10px] px-2.5 py-1 rounded-lg border font-semibold transition-all cursor-pointer ${
                         formCategory === suggestedCat
-                          ? 'bg-emerald-800 text-white border-emerald-800'
-                          : 'bg-stone-100 text-stone-600 border-stone-200 hover:bg-stone-200'
+                          ? 'bg-amber-400 text-stone-950 border-amber-300 font-bold shadow-xs'
+                          : 'bg-[#06261A] text-emerald-200 border-emerald-800/80 hover:bg-emerald-900/80'
                       }`}
                     >
                       {suggestedCat}
@@ -1077,9 +913,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                 </div>
               </div>
 
-              {/* Accompaniments (Shifted Up) */}
+              {/* Accompaniments */}
               <div>
-                <label className="block font-extrabold text-stone-800 mb-1">
+                <label className="block font-extrabold text-emerald-100 mb-1">
                   Accompaniments (comma or new-line separated) *
                 </label>
                 <textarea
@@ -1088,38 +924,37 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                   placeholder="e.g. Steamed Basmati Rice, Butter Bean Curry, Sambal, Naan Bread, Yoghurt Sauce"
                   value={formAccompaniments}
                   onChange={(e) => setFormAccompaniments(e.target.value)}
-                  className="w-full p-2.5 border border-stone-300 rounded-xl focus:border-emerald-700 focus:outline-none font-medium text-stone-800"
+                  className="w-full p-2.5 bg-[#06261A] border border-emerald-800/80 rounded-xl focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 focus:outline-none font-medium text-white placeholder:text-emerald-400/50"
                 />
-                <p className="text-[11px] text-stone-400 mt-1">
+                <p className="text-[11px] text-emerald-300/80 mt-1 font-medium">
                   Type each side dish or accompaniment separated by a comma or on a new line.
                 </p>
               </div>
 
-              {/* Shield / Admin Privacy Banner placed below Category & Accompaniments */}
-              <div className="p-3 bg-amber-50 rounded-2xl border border-amber-300 flex items-center justify-between gap-2.5 text-xs text-amber-950">
+              {/* Shield / Admin Privacy Banner */}
+              <div className="p-3 bg-[#06261A] rounded-2xl border border-amber-500/50 flex items-center justify-between gap-2.5 text-xs text-amber-200">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-7 h-7 rounded-xl bg-amber-200/80 flex items-center justify-center shrink-0">
-                    <ShieldCheck className="w-4 h-4 text-amber-800" />
+                  <div className="w-7 h-7 rounded-xl bg-amber-400/20 border border-amber-400/30 flex items-center justify-center shrink-0">
+                    <ShieldCheck className="w-4 h-4 text-amber-300" />
                   </div>
                   <div>
-                    <span className="font-extrabold block text-stone-900 text-xs">
+                    <span className="font-extrabold block text-white text-xs">
                       Cook & Catering Details
                     </span>
-                    <span className="text-[11px] text-amber-900 font-medium">
+                    <span className="text-[11px] text-amber-200/90 font-medium">
                       Contact details are strictly protected and visible to Admin only.
                     </span>
                   </div>
                 </div>
-                <span className="text-[10px] font-black text-amber-900 bg-amber-200 px-2.5 py-1 rounded-lg border border-amber-300 shrink-0">
+                <span className="text-[10px] font-black text-amber-200 bg-amber-500/20 px-2.5 py-1 rounded-lg border border-amber-400/40 shrink-0">
                   Visible to Admin Only
                 </span>
               </div>
 
-              {/* Personal Details Fields Below Shield */}
               {/* Questions 1 & 2: Prepared By & Available to Cook */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-0.5">
                 <div>
-                  <label className="block font-extrabold text-stone-800 mb-1">
+                  <label className="block font-extrabold text-emerald-100 mb-1">
                     Prepared by (Nickname)
                   </label>
                   <input
@@ -1127,15 +962,15 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                     placeholder="e.g. Chef Sis Gugu, Mama Dlamini"
                     value={formPreparedBy}
                     onChange={(e) => setFormPreparedBy(e.target.value)}
-                    className="w-full p-2.5 border border-stone-300 rounded-xl focus:border-emerald-700 focus:outline-none font-semibold text-stone-900"
+                    className="w-full p-2.5 bg-[#06261A] border border-emerald-800/80 rounded-xl focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 focus:outline-none font-semibold text-white placeholder:text-emerald-400/50"
                   />
-                  <span className="text-[10px] text-stone-400 font-medium">
+                  <span className="text-[10px] text-emerald-300/80 font-medium">
                     Display name for recipe and catering inquiries
                   </span>
                 </div>
 
                 <div>
-                  <label className="block font-extrabold text-stone-800 mb-1">
+                  <label className="block font-extrabold text-emerald-100 mb-1">
                     Available To Cook For You
                   </label>
                   <select
@@ -1143,12 +978,12 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                     onChange={(e) =>
                       setFormAvailableToCook(e.target.value as 'Yes' | 'No')
                     }
-                    className="w-full p-2.5 border border-stone-300 rounded-xl focus:border-emerald-700 focus:outline-none font-semibold text-stone-900 bg-white cursor-pointer"
+                    className="w-full p-2.5 bg-[#06261A] border border-emerald-800/80 rounded-xl focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 focus:outline-none font-semibold text-white cursor-pointer"
                   >
-                    <option value="Yes">Yes (Available for Hire / Events)</option>
-                    <option value="No">No (Recipe Only / Not for Hire)</option>
+                    <option value="Yes" className="bg-[#06261A] text-white">Yes (Available for Hire / Events)</option>
+                    <option value="No" className="bg-[#06261A] text-white">No (Recipe Only / Not for Hire)</option>
                   </select>
-                  <span className="text-[10px] text-stone-400 font-medium">
+                  <span className="text-[10px] text-emerald-300/80 font-medium">
                     Allow clients to send hiring requests
                   </span>
                 </div>
@@ -1157,11 +992,11 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               {/* Questions 3 & 4: Contact Details & Day Rate */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-extrabold text-stone-800 mb-1 flex items-center justify-between">
+                  <label className="block font-extrabold text-emerald-100 mb-1 flex items-center justify-between">
                     <span>
-                      Contact Details {formAvailableToCook === 'Yes' ? <span className="text-emerald-700 font-black">*</span> : <span className="text-stone-400 font-normal text-xs">(Optional)</span>}
+                      Contact Details {formAvailableToCook === 'Yes' ? <span className="text-amber-300 font-black">*</span> : <span className="text-emerald-300/60 font-normal text-xs">(Optional)</span>}
                     </span>
-                    <span className="text-[9px] text-amber-700 font-bold bg-amber-100 px-1.5 py-0.2 rounded-md">
+                    <span className="text-[9px] text-amber-300 font-bold bg-amber-500/20 border border-amber-500/40 px-1.5 py-0.2 rounded-md">
                       Visible to Admin Only
                     </span>
                   </label>
@@ -1175,17 +1010,17 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                     }
                     value={formContactDetails}
                     onChange={(e) => setFormContactDetails(e.target.value)}
-                    className="w-full p-2.5 border border-stone-300 rounded-xl focus:border-emerald-700 focus:outline-none font-semibold text-stone-900"
+                    className="w-full p-2.5 bg-[#06261A] border border-emerald-800/80 rounded-xl focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 focus:outline-none font-semibold text-white placeholder:text-emerald-400/50"
                   />
-                  <span className="text-[10px] text-stone-400 font-medium flex items-center gap-1 mt-0.5">
-                    <Lock className="w-2.5 h-2.5 text-stone-400" />
+                  <span className="text-[10px] text-emerald-300/80 font-medium flex items-center gap-1 mt-0.5">
+                    <Lock className="w-2.5 h-2.5 text-amber-300" />
                     Strictly protected & visible only to Admin
                   </span>
                 </div>
 
                 <div>
-                  <label className="block font-extrabold text-stone-800 mb-1">
-                    Day Rate {formAvailableToCook === 'Yes' ? <span className="text-emerald-700 font-black">*</span> : <span className="text-stone-400 font-normal text-xs">(Optional)</span>}
+                  <label className="block font-extrabold text-emerald-100 mb-1">
+                    Day Rate {formAvailableToCook === 'Yes' ? <span className="text-amber-300 font-black">*</span> : <span className="text-emerald-300/60 font-normal text-xs">(Optional)</span>}
                   </label>
                   <input
                     type="text"
@@ -1197,9 +1032,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                     }
                     value={formDayRate}
                     onChange={(e) => setFormDayRate(e.target.value)}
-                    className="w-full p-2.5 border border-stone-300 rounded-xl focus:border-emerald-700 focus:outline-none font-semibold text-stone-900"
+                    className="w-full p-2.5 bg-[#06261A] border border-emerald-800/80 rounded-xl focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 focus:outline-none font-semibold text-white placeholder:text-emerald-400/50"
                   />
-                  <span className="text-[10px] text-stone-400 font-medium">
+                  <span className="text-[10px] text-emerald-300/80 font-medium">
                     {formAvailableToCook === 'Yes'
                       ? 'Required for caterer profile (events, weddings, parties)'
                       : 'Not required when not available for hire'}
@@ -1207,20 +1042,20 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                 </div>
               </div>
 
-              <div className="flex justify-end gap-2 pt-3 border-t border-stone-100">
+              <div className="flex justify-end gap-2 pt-3 border-t border-emerald-900/80">
                 <button
                   type="button"
                   onClick={() => setIsAddModalOpen(false)}
-                  className="px-4 py-2 font-bold text-stone-600 hover:bg-stone-100 rounded-xl cursor-pointer"
+                  className="px-4 py-2 font-bold text-emerald-200 hover:text-white hover:bg-[#06261A] rounded-xl cursor-pointer transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="inline-flex items-center gap-2 px-6 py-2.5 font-extrabold text-white bg-emerald-700 hover:bg-emerald-800 rounded-xl shadow-md transition-all cursor-pointer text-xs"
+                  className="inline-flex items-center gap-2 px-6 py-2.5 font-black text-black bg-[#fbf304] hover:bg-yellow-300 border-2 border-black rounded-xl shadow-md transition-all cursor-pointer text-xs"
                 >
-                  <span>Continue To Costing</span>
-                  <ArrowRight className="w-4 h-4" />
+                  <span>Save & Open in Dish Builder</span>
+                  <ArrowRight className="w-4 h-4 stroke-[2.5]" />
                 </button>
               </div>
             </form>
@@ -1230,27 +1065,27 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
       {/* Bulk Import Modal */}
       {isBulkModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl p-6 sm:p-7 max-w-xl w-full border-2 border-black shadow-xl space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-stone-100">
-              <h3 className="text-base font-extrabold text-stone-900 flex items-center gap-2">
-                <Upload className="w-5 h-5 text-emerald-700" />
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-[#0B3B28] text-white rounded-3xl p-6 sm:p-7 max-w-xl w-full border-2 border-emerald-900 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-emerald-900/80">
+              <h3 className="text-base font-extrabold text-white flex items-center gap-2">
+                <Upload className="w-5 h-5 text-amber-300" />
                 Bulk Import Recipes
               </h3>
               <button
                 type="button"
                 onClick={() => setIsBulkModalOpen(false)}
-                className="p-1 text-stone-400 hover:text-stone-700 hover:bg-stone-100 rounded-lg cursor-pointer"
+                className="p-1.5 text-emerald-300 hover:text-white hover:bg-[#06261A] rounded-xl transition-colors cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
             <form onSubmit={handleBulkImport} className="space-y-4 text-xs">
-              <p className="text-stone-600 leading-relaxed">
+              <p className="text-emerald-200 leading-relaxed font-medium">
                 Paste your custom menus below. Format each line as:
                 <br />
-                <code className="text-[11px] bg-stone-100 px-2 py-1 rounded text-emerald-900 font-mono block my-1">
+                <code className="text-[11px] bg-[#06261A] border border-emerald-800/80 px-2 py-1 rounded text-amber-300 font-mono block my-1">
                   Dish Title: Accompaniment 1, Accompaniment 2, Accompaniment 3
                 </code>
               </p>
@@ -1260,24 +1095,24 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                 value={bulkText}
                 onChange={(e) => setBulkText(e.target.value)}
                 placeholder={`e.g.\nCape Malay Bobotie Platter: Yellow Rice, Baked Bobotie, Chutney, Sambal\nGreek Gyros Plate: Pita Bread, Grilled Chicken, Tzatziki, Greek Salad, Fries`}
-                className="w-full p-3 border border-stone-300 rounded-2xl focus:border-emerald-600 focus:outline-none font-mono text-xs text-stone-800"
+                className="w-full p-3 bg-[#06261A] border border-emerald-800/80 rounded-2xl focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 focus:outline-none font-mono text-xs text-white placeholder:text-emerald-400/50"
               />
 
-              <div className="flex justify-end gap-2 pt-3 border-t border-stone-100">
+              <div className="flex justify-end gap-2 pt-3 border-t border-emerald-900/80">
                 <button
                   type="button"
                   onClick={() => setIsBulkModalOpen(false)}
-                  className="px-4 py-2 font-bold text-stone-600 hover:bg-stone-100 rounded-xl cursor-pointer"
+                  className="px-4 py-2 font-bold text-emerald-200 hover:text-white hover:bg-[#06261A] rounded-xl cursor-pointer transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={!bulkText.trim()}
-                  className="inline-flex items-center gap-1.5 px-5 py-2 font-bold text-white bg-emerald-800 hover:bg-emerald-900 disabled:opacity-50 rounded-xl shadow-xs cursor-pointer"
+                  className="inline-flex items-center gap-1.5 px-6 py-2.5 font-black text-black bg-[#fbf304] hover:bg-yellow-300 disabled:opacity-50 border-2 border-black rounded-xl shadow-md cursor-pointer"
                 >
-                  <Check className="w-4 h-4" />
-                  Import Suggestions
+                  <Check className="w-4 h-4 stroke-[2.5]" />
+                  <span>Import Suggestions</span>
                 </button>
               </div>
             </form>

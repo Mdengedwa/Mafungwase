@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Header, ActiveTab } from './components/Header';
 import { HomeScreen } from './components/HomeScreen';
+import { DishBuilderScreen } from './components/DishBuilderScreen';
 import { AccompanimentScreen } from './components/AccompanimentScreen';
 import { MealScreen } from './components/MealScreen';
 import { QuoteScreen } from './components/QuoteScreen';
@@ -27,13 +28,15 @@ import defaultLogoImg from './assets/images/food_costing_logo_1786443360654.jpg'
 export const DEFAULT_LOGO = defaultLogoImg;
 
 export default function App() {
+  // Landing page is 'home' (Recipe Library & Catering Menus)
   const [activeTab, setActiveTab] = useState<ActiveTab>('home');
   const [isLogoModalOpen, setIsLogoModalOpen] = useState(false);
   const [isQuickCalcOpen, setIsQuickCalcOpen] = useState(false);
 
-  // Unlocked navigation tabs - orderList and communityRecipes are always accessible
+  // Unlocked navigation tabs - home (Recipe Library), dishBuilder (Step 1), orderList and communityRecipes are accessible
   const [unlockedTabs, setUnlockedTabs] = useState<ActiveTab[]>([
     'home',
+    'dishBuilder',
     'orderList',
     'communityRecipes',
   ]);
@@ -60,7 +63,7 @@ export default function App() {
     return INITIAL_ORDER_LIST;
   });
 
-  // Home Screen Dish State
+  // Home / Dish Builder Dish State
   const [dishName, setDishName] = useState<string>('Traditional Durban Curry Platter');
   const [accompanimentNames, setAccompanimentNames] = useState<string[]>([
     'Steamed Basmati Rice',
@@ -149,8 +152,8 @@ export default function App() {
     localStorage.setItem('food_costing_app_logo', logoUrl);
   }, [logoUrl]);
 
-  // Build Accompaniments from accompanimentNames when navigating from Home
-  const handleBuildAccompanimentsFromHome = (shouldNavigate: boolean = true) => {
+  // Build Accompaniments from accompanimentNames when navigating to Step 2
+  const handleBuildAccompaniments = (shouldNavigate: boolean = true) => {
     const newAccs: Accompaniment[] = accompanimentNames.map((name, index) => {
       // Find existing accompaniment if name matches
       const existing = accompaniments.find(
@@ -350,13 +353,14 @@ export default function App() {
     if (shouldNavigate) {
       setUnlockedTabs((prev) => Array.from(new Set([...prev, 'accompaniments'])));
       setActiveTab('accompaniments');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
 
   // Build initial data on first mount if empty without changing landing page tab
   useEffect(() => {
     if (accompaniments.length === 0) {
-      handleBuildAccompanimentsFromHome(false);
+      handleBuildAccompaniments(false);
     }
   }, []);
 
@@ -377,32 +381,54 @@ export default function App() {
 
       {/* Main Content Body */}
       <main className="flex-1 pb-16">
+        {/* Landing Page (Page 1): Recipe Library & Catering Menus */}
         {activeTab === 'home' && (
           <HomeScreen
             dishName={dishName}
             setDishName={setDishName}
             accompanimentNames={accompanimentNames}
             setAccompanimentNames={setAccompanimentNames}
-            onContinue={handleBuildAccompanimentsFromHome}
+            onNavigateToDishBuilder={() => {
+              setActiveTab('dishBuilder');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
             logoUrl={logoUrl}
           />
         )}
 
+        {/* Dedicated Page 2: Catering Dish & Accompaniment Builder */}
+        {activeTab === 'dishBuilder' && (
+          <DishBuilderScreen
+            dishName={dishName}
+            setDishName={setDishName}
+            accompanimentNames={accompanimentNames}
+            setAccompanimentNames={setAccompanimentNames}
+            onContinueToAccompaniments={() => handleBuildAccompaniments(true)}
+            onBackToLibrary={() => {
+              setActiveTab('home');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            logoUrl={logoUrl}
+          />
+        )}
+
+        {/* Step 2: Individual Accompaniment Portion Calculators */}
         {activeTab === 'accompaniments' && (
           <AccompanimentScreen
             accompaniments={accompaniments}
             setAccompaniments={setAccompaniments}
             orderList={orderList}
             onContinueToMeal={() => {
-              // Update meal plate cost calculation with current accompaniments
               const updatedMeal = recalculateMeal(currentMeal, accompaniments);
               setCurrentMeal(updatedMeal);
               setUnlockedTabs((prev) => Array.from(new Set([...prev, 'meals'])));
               setActiveTab('meals');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
             }}
           />
         )}
 
+        {/* Step 3: Meal Assembly */}
         {activeTab === 'meals' && (
           <MealScreen
             currentMeal={currentMeal}
@@ -410,15 +436,16 @@ export default function App() {
             accompaniments={accompaniments}
             orderList={orderList}
             onContinueToQuote={() => {
-              // Update quote calculation with current meal
               const updatedQuote = recalculateQuote(quote, [currentMeal]);
               setQuote(updatedQuote);
               setUnlockedTabs((prev) => Array.from(new Set([...prev, 'quotes'])));
               setActiveTab('quotes');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
             }}
           />
         )}
 
+        {/* Step 4: Client Quotations */}
         {activeTab === 'quotes' && (
           <QuoteScreen
             quote={quote}
@@ -428,6 +455,7 @@ export default function App() {
           />
         )}
 
+        {/* Order List: Bulk Pricing Database */}
         {activeTab === 'orderList' && (
           <OrderListScreen
             orderList={orderList}
@@ -436,6 +464,7 @@ export default function App() {
           />
         )}
 
+        {/* Community Recipes */}
         {activeTab === 'communityRecipes' && (
           <CommunityRecipesScreen
             dishName={dishName}
@@ -443,7 +472,7 @@ export default function App() {
             accompanimentNames={accompanimentNames}
             setAccompanimentNames={setAccompanimentNames}
             onNavigateToDishSetup={() => {
-              setActiveTab('home');
+              setActiveTab('dishBuilder');
               window.scrollTo({ top: 0, behavior: 'smooth' });
             }}
             logoUrl={logoUrl}
@@ -466,7 +495,10 @@ export default function App() {
                 }
               }}
             />
-            <span className="font-semibold text-stone-200">SOUS - FOR PROFITABLE KITCHENS</span>
+            <span className="font-futura font-black text-sm tracking-[0.14em] text-stone-100 uppercase">
+              CATCHUP
+            </span>
+            <span className="text-stone-300 font-semibold">• FOR PROFITABLE KITCHENS</span>
             <span>— Professional Catering Cost Accounting</span>
           </div>
           <p className="text-[11px] text-stone-500">
@@ -488,7 +520,7 @@ export default function App() {
       <QuickCalculatorModal
         isOpen={isQuickCalcOpen}
         onClose={() => setIsQuickCalcOpen(false)}
-        onNavigateToDishSetup={() => setActiveTab('home')}
+        onNavigateToDishSetup={() => setActiveTab('dishBuilder')}
       />
     </div>
   );

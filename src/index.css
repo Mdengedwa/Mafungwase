@@ -10,6 +10,7 @@
 
 .font-futura,
 .font-futura * {
-  font-family: 'Futura', 'Futura PT', 'Futura-Medium', 'Futura-Bold', 'Jost', 'Century Gothic', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: 'Futura', 'Futura PT', 'Futura-Bold', 'Futura-Medium', 'Jost', 'Montserrat', 'Century Gothic', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  letter-spacing: 0.14em;
 }
 

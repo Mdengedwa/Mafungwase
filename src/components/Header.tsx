@@ -6,16 +6,22 @@ import {
   Layers,
   FileSpreadsheet,
   Database,
-  Tag,
   ChefHat,
   Image as ImageIcon,
   Scale,
-  Sparkles,
   Code,
   Lock,
+  BookOpen,
 } from 'lucide-react';
 
-export type ActiveTab = 'home' | 'accompaniments' | 'meals' | 'quotes' | 'orderList' | 'communityRecipes';
+export type ActiveTab =
+  | 'home'
+  | 'dishBuilder'
+  | 'accompaniments'
+  | 'meals'
+  | 'quotes'
+  | 'orderList'
+  | 'communityRecipes';
 
 interface HeaderProps {
   activeTab: ActiveTab;
@@ -62,7 +68,8 @@ export const Header: React.FC<HeaderProps> = ({
   }, [propDevMode]);
 
   const navItems: { id: ActiveTab; label: string; icon: React.ElementType; badge?: number }[] = [
-    { id: 'home', label: 'Dish Setup', icon: Utensils },
+    { id: 'home', label: 'Recipe Library', icon: BookOpen },
+    { id: 'dishBuilder', label: 'Dish Builder', icon: Utensils },
     { id: 'accompaniments', label: 'Accompaniments', icon: Calculator, badge: accompanimentsCount },
     { id: 'meals', label: 'Meal Assembly', icon: Layers, badge: mealsCount },
     { id: 'quotes', label: 'Quotes', icon: FileSpreadsheet, badge: quotesCount },
@@ -70,8 +77,8 @@ export const Header: React.FC<HeaderProps> = ({
     { id: 'communityRecipes', label: 'Our Community Recipes', icon: ChefHat, badge: recipesCount },
   ];
 
-  // Order List, Community Recipes, and Dish Setup are always directly accessible without click-throughs
-  const alwaysAccessibleTabs: ActiveTab[] = ['home', 'orderList', 'communityRecipes'];
+  // Recipe Library (landing page), Dish Builder, Order List, and Community Recipes are always accessible
+  const alwaysAccessibleTabs: ActiveTab[] = ['home', 'dishBuilder', 'orderList', 'communityRecipes'];
 
   const isTabAccessible = (tabId: ActiveTab) => {
     if (alwaysAccessibleTabs.includes(tabId)) return true;
@@ -92,7 +99,7 @@ export const Header: React.FC<HeaderProps> = ({
               >
                 <img
                   src={logoUrl || defaultLogoImg}
-                  alt="SOUS Logo"
+                  alt="CATCHUP Logo"
                   className="h-9 w-9 object-contain rounded-xl"
                   onError={(e) => {
                     const target = e.currentTarget as HTMLImageElement;
@@ -109,7 +116,7 @@ export const Header: React.FC<HeaderProps> = ({
               <div className="flex items-center justify-center p-1 bg-[#06261A] rounded-2xl border border-emerald-800/80 overflow-hidden shadow-xs">
                 <img
                   src={logoUrl || defaultLogoImg}
-                  alt="SOUS Logo"
+                  alt="CATCHUP Logo"
                   className="h-9 w-9 object-contain rounded-xl"
                   onError={(e) => {
                     const target = e.currentTarget as HTMLImageElement;
@@ -120,8 +127,8 @@ export const Header: React.FC<HeaderProps> = ({
                 />
               </div>
             )}
-            <span className="font-black text-lg tracking-wider text-white select-none">
-              SOUS
+            <span className="font-futura font-black text-xl tracking-[0.18em] uppercase text-white select-none font-['Jost','Futura','Futura_PT','Montserrat','Century_Gothic',sans-serif]">
+              CATCHUP
             </span>
           </div>
 
@@ -139,7 +146,7 @@ export const Header: React.FC<HeaderProps> = ({
                     type="button"
                     disabled
                     title="Locked: Please click the 'Proceed' button on the current page to progress through the recipe costing workflow."
-                    className="relative flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-emerald-200/40 bg-transparent opacity-50 cursor-not-allowed select-none"
+                    className="relative flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-emerald-200/40 bg-transparent opacity-50 cursor-not-allowed select-none"
                   >
                     <Icon className="w-4 h-4 text-emerald-300/40" />
                     <span>{item.label}</span>
@@ -153,7 +160,7 @@ export const Header: React.FC<HeaderProps> = ({
                   key={item.id}
                   type="button"
                   onClick={() => setActiveTab(item.id)}
-                  className={`relative flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  className={`relative flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                     isActive
                       ? 'bg-emerald-600 text-white shadow-sm'
                       : 'text-emerald-100/80 hover:text-white hover:bg-emerald-800/60'
@@ -163,7 +170,7 @@ export const Header: React.FC<HeaderProps> = ({
                   <span>{item.label}</span>
                   {item.badge !== undefined && item.badge > 0 && (
                     <span
-                      className={`ml-0.5 px-2 py-0.2 text-[10px] rounded-full font-extrabold ${
+                      className={`ml-0.5 px-1.5 py-0.2 text-[10px] rounded-full font-extrabold ${
                         isActive
                           ? 'bg-emerald-950 text-emerald-200'
                           : 'bg-emerald-900/80 text-emerald-200'
@@ -186,7 +193,7 @@ export const Header: React.FC<HeaderProps> = ({
               className="text-xs font-extrabold text-amber-200 hover:text-white bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400/50 px-3.5 py-2 rounded-xl transition-all flex items-center gap-2 shadow-xs cursor-pointer"
             >
               <Scale className="w-4 h-4 text-amber-300" />
-              <span>Quick Calculator</span>
+              <span className="hidden sm:inline">Quick Calculator</span>
             </button>
 
             {/* Developer Mode Only: Change Logo Button */}
@@ -254,4 +261,3 @@ export const Header: React.FC<HeaderProps> = ({
     </header>
   );
 };
-

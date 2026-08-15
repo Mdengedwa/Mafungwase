@@ -24,6 +24,7 @@ import {
   DEFAULT_PRESET_SUGGESTIONS,
   PresetSuggestion,
   ChefBookingInquiry,
+  filterOutIncoherentRecipes,
 } from '../data/defaultPresetSuggestions';
 import { HireChefModal } from './HireChefModal';
 import { ManagerInquiryModal } from './ManagerInquiryModal';
@@ -56,7 +57,13 @@ export const CommunityRecipesScreen: React.FC<CommunityRecipesScreenProps> = ({
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) {
-          return parsed;
+          const cleaned = filterOutIncoherentRecipes(parsed);
+          try {
+            localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(cleaned));
+          } catch (e) {
+            console.error('Failed to update cleaned presets', e);
+          }
+          return cleaned;
         }
       }
     } catch (e) {
@@ -640,21 +647,21 @@ export const CommunityRecipesScreen: React.FC<CommunityRecipesScreenProps> = ({
 
       {/* Add / Edit Recipe Modal */}
       {isAddModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4 my-8 max-h-[90vh] overflow-y-auto border border-stone-200">
-            <div className="flex items-center justify-between pb-3 border-b border-stone-100">
-              <div className="flex items-center gap-2 text-emerald-900">
-                <div className="w-7 h-7 bg-emerald-100 rounded-lg flex items-center justify-center">
-                  <Plus className="w-4 h-4 text-emerald-800 stroke-[3]" />
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-[#0B3B28] text-white rounded-3xl max-w-lg w-full p-6 sm:p-7 shadow-2xl space-y-4 my-8 max-h-[90vh] overflow-y-auto border-2 border-emerald-900">
+            <div className="flex items-center justify-between pb-3 border-b border-emerald-900/80">
+              <div className="flex items-center gap-2 text-white">
+                <div className="w-7 h-7 bg-amber-400/20 border border-amber-400/30 rounded-lg flex items-center justify-center">
+                  <Plus className="w-4 h-4 text-amber-300 stroke-[3]" />
                 </div>
-                <h3 className="text-lg font-black text-stone-900">
+                <h3 className="text-lg font-black text-white">
                   {editingPreset ? 'Edit Recipe' : 'Add Custom Recipe'}
                 </h3>
               </div>
               <button
                 type="button"
                 onClick={() => setIsAddModalOpen(false)}
-                className="text-stone-400 hover:text-stone-600 p-1.5 rounded-full hover:bg-stone-100 cursor-pointer"
+                className="p-1.5 text-emerald-300 hover:text-white hover:bg-[#06261A] rounded-xl transition-colors cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -663,7 +670,7 @@ export const CommunityRecipesScreen: React.FC<CommunityRecipesScreenProps> = ({
             <form onSubmit={handleSaveRecipeAndContinue} className="space-y-4 text-xs">
               {/* Dish / Menu Title */}
               <div>
-                <label className="block font-extrabold text-stone-800 mb-1">
+                <label className="block font-extrabold text-emerald-100 mb-1">
                   Dish / Menu Title *
                 </label>
                 <input
@@ -672,13 +679,13 @@ export const CommunityRecipesScreen: React.FC<CommunityRecipesScreenProps> = ({
                   placeholder="e.g. Traditional Sunday Roast Platter or Inyama Yenhloko Feast"
                   value={formTitle}
                   onChange={(e) => setFormTitle(e.target.value)}
-                  className="w-full p-2.5 border border-stone-300 rounded-xl focus:border-emerald-700 focus:outline-none font-bold text-stone-900"
+                  className="w-full p-2.5 bg-[#06261A] border border-emerald-800/80 rounded-xl focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 focus:outline-none font-bold text-white placeholder:text-emerald-400/50"
                 />
               </div>
 
               {/* Category */}
               <div>
-                <label className="block font-extrabold text-stone-800 mb-1">
+                <label className="block font-extrabold text-emerald-100 mb-1">
                   Category
                 </label>
                 <input
@@ -686,7 +693,7 @@ export const CommunityRecipesScreen: React.FC<CommunityRecipesScreenProps> = ({
                   placeholder="Custom Suggestions"
                   value={formCategory}
                   onChange={(e) => setFormCategory(e.target.value)}
-                  className="w-full p-2.5 border border-stone-300 rounded-xl focus:border-emerald-700 focus:outline-none font-semibold text-stone-800"
+                  className="w-full p-2.5 bg-[#06261A] border border-emerald-800/80 rounded-xl focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 focus:outline-none font-semibold text-white placeholder:text-emerald-400/50"
                 />
                 <div className="flex flex-wrap gap-1.5 mt-2">
                   {[
@@ -704,8 +711,8 @@ export const CommunityRecipesScreen: React.FC<CommunityRecipesScreenProps> = ({
                       onClick={() => setFormCategory(cat)}
                       className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
                         formCategory === cat
-                          ? 'bg-emerald-800 text-white'
-                          : 'bg-stone-100 hover:bg-stone-200 text-stone-700'
+                          ? 'bg-amber-400 text-stone-950 border-amber-300 font-bold shadow-xs'
+                          : 'bg-[#06261A] text-emerald-200 border border-emerald-800/80 hover:bg-emerald-900/80'
                       }`}
                     >
                       {cat}
@@ -716,7 +723,7 @@ export const CommunityRecipesScreen: React.FC<CommunityRecipesScreenProps> = ({
 
               {/* Accompaniments */}
               <div>
-                <label className="block font-extrabold text-stone-800 mb-1">
+                <label className="block font-extrabold text-emerald-100 mb-1">
                   Accompaniments (comma or new-line separated) *
                 </label>
                 <textarea
@@ -725,29 +732,29 @@ export const CommunityRecipesScreen: React.FC<CommunityRecipesScreenProps> = ({
                   placeholder="e.g. Steamed Basmati Rice, Butter Bean Curry, Sambal, Naan Bread, Yoghurt Sauce"
                   value={formAccompaniments}
                   onChange={(e) => setFormAccompaniments(e.target.value)}
-                  className="w-full p-2.5 border border-stone-300 rounded-xl focus:border-emerald-700 focus:outline-none font-medium text-stone-800"
+                  className="w-full p-2.5 bg-[#06261A] border border-emerald-800/80 rounded-xl focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 focus:outline-none font-medium text-white placeholder:text-emerald-400/50"
                 />
-                <p className="text-[11px] text-stone-400 mt-1">
+                <p className="text-[11px] text-emerald-300/80 mt-1 font-medium">
                   Type each side dish or accompaniment separated by a comma or on a new line.
                 </p>
               </div>
 
               {/* Shield / Admin Privacy Banner */}
-              <div className="p-3 bg-amber-50 rounded-2xl border border-amber-300 flex items-center justify-between gap-2.5 text-xs text-amber-950">
+              <div className="p-3 bg-[#06261A] rounded-2xl border border-amber-500/50 flex items-center justify-between gap-2.5 text-xs text-amber-200">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-7 h-7 rounded-xl bg-amber-200/80 flex items-center justify-center shrink-0">
-                    <ShieldCheck className="w-4 h-4 text-amber-800" />
+                  <div className="w-7 h-7 rounded-xl bg-amber-400/20 border border-amber-400/30 flex items-center justify-center shrink-0">
+                    <ShieldCheck className="w-4 h-4 text-amber-300" />
                   </div>
                   <div>
-                    <span className="font-extrabold block text-stone-900 text-xs">
+                    <span className="font-extrabold block text-white text-xs">
                       Cook & Catering Details
                     </span>
-                    <span className="text-[11px] text-amber-900 font-medium">
+                    <span className="text-[11px] text-amber-200/90 font-medium">
                       Contact details are strictly protected and visible to Admin only.
                     </span>
                   </div>
                 </div>
-                <span className="text-[10px] font-black text-amber-900 bg-amber-200 px-2.5 py-1 rounded-lg border border-amber-300 shrink-0">
+                <span className="text-[10px] font-black text-amber-200 bg-amber-500/20 px-2.5 py-1 rounded-lg border border-amber-400/40 shrink-0">
                   Visible to Admin Only
                 </span>
               </div>
@@ -755,7 +762,7 @@ export const CommunityRecipesScreen: React.FC<CommunityRecipesScreenProps> = ({
               {/* Prepared By & Available to Cook */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-0.5">
                 <div>
-                  <label className="block font-extrabold text-stone-800 mb-1">
+                  <label className="block font-extrabold text-emerald-100 mb-1">
                     Prepared by (Nickname)
                   </label>
                   <input
@@ -763,15 +770,15 @@ export const CommunityRecipesScreen: React.FC<CommunityRecipesScreenProps> = ({
                     placeholder="e.g. Chef Sis Gugu, Mama Dlamini"
                     value={formPreparedBy}
                     onChange={(e) => setFormPreparedBy(e.target.value)}
-                    className="w-full p-2.5 border border-stone-300 rounded-xl focus:border-emerald-700 focus:outline-none font-semibold text-stone-900"
+                    className="w-full p-2.5 bg-[#06261A] border border-emerald-800/80 rounded-xl focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 focus:outline-none font-semibold text-white placeholder:text-emerald-400/50"
                   />
-                  <span className="text-[10px] text-stone-400 font-medium">
+                  <span className="text-[10px] text-emerald-300/80 font-medium">
                     Display name for recipe and catering inquiries
                   </span>
                 </div>
 
                 <div>
-                  <label className="block font-extrabold text-stone-800 mb-1">
+                  <label className="block font-extrabold text-emerald-100 mb-1">
                     Available To Cook For You
                   </label>
                   <select
@@ -779,12 +786,12 @@ export const CommunityRecipesScreen: React.FC<CommunityRecipesScreenProps> = ({
                     onChange={(e) =>
                       setFormAvailableToCook(e.target.value as 'Yes' | 'No')
                     }
-                    className="w-full p-2.5 border border-stone-300 rounded-xl focus:border-emerald-700 focus:outline-none font-bold text-stone-900 bg-white"
+                    className="w-full p-2.5 bg-[#06261A] border border-emerald-800/80 rounded-xl focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 focus:outline-none font-bold text-white cursor-pointer"
                   >
-                    <option value="Yes">Yes (Available for Hire / Events)</option>
-                    <option value="No">No (Recipe Only / Not for Hire)</option>
+                    <option value="Yes" className="bg-[#06261A] text-white">Yes (Available for Hire / Events)</option>
+                    <option value="No" className="bg-[#06261A] text-white">No (Recipe Only / Not for Hire)</option>
                   </select>
-                  <span className="text-[10px] text-stone-400 font-medium">
+                  <span className="text-[10px] text-emerald-300/80 font-medium">
                     Allow clients to send hiring requests
                   </span>
                 </div>
@@ -793,11 +800,11 @@ export const CommunityRecipesScreen: React.FC<CommunityRecipesScreenProps> = ({
               {/* Contact Details & Day Rate (Conditional Mandatory) */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-extrabold text-stone-800 mb-1 flex items-center justify-between">
+                  <label className="block font-extrabold text-emerald-100 mb-1 flex items-center justify-between">
                     <span>
-                      Contact Details {formAvailableToCook === 'Yes' ? <span className="text-emerald-700 font-black">*</span> : <span className="text-stone-400 font-normal text-xs">(Optional)</span>}
+                      Contact Details {formAvailableToCook === 'Yes' ? <span className="text-amber-300 font-black">*</span> : <span className="text-emerald-300/60 font-normal text-xs">(Optional)</span>}
                     </span>
-                    <span className="text-[9px] text-amber-700 font-bold bg-amber-100 px-1.5 py-0.2 rounded-md">
+                    <span className="text-[9px] text-amber-300 font-bold bg-amber-500/20 border border-amber-500/40 px-1.5 py-0.2 rounded-md">
                       Visible to Admin Only
                     </span>
                   </label>
@@ -811,17 +818,17 @@ export const CommunityRecipesScreen: React.FC<CommunityRecipesScreenProps> = ({
                     }
                     value={formContactDetails}
                     onChange={(e) => setFormContactDetails(e.target.value)}
-                    className="w-full p-2.5 border border-stone-300 rounded-xl focus:border-emerald-700 focus:outline-none font-semibold text-stone-900"
+                    className="w-full p-2.5 bg-[#06261A] border border-emerald-800/80 rounded-xl focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 focus:outline-none font-semibold text-white placeholder:text-emerald-400/50"
                   />
-                  <span className="text-[10px] text-stone-400 font-medium flex items-center gap-1">
-                    <Lock className="w-2.5 h-2.5 text-amber-600" />
+                  <span className="text-[10px] text-emerald-300/80 font-medium flex items-center gap-1 mt-0.5">
+                    <Lock className="w-2.5 h-2.5 text-amber-300" />
                     Strictly protected & visible only to Admin
                   </span>
                 </div>
 
                 <div>
-                  <label className="block font-extrabold text-stone-800 mb-1">
-                    Day Rate {formAvailableToCook === 'Yes' ? <span className="text-emerald-700 font-black">*</span> : <span className="text-stone-400 font-normal text-xs">(Optional)</span>}
+                  <label className="block font-extrabold text-emerald-100 mb-1">
+                    Day Rate {formAvailableToCook === 'Yes' ? <span className="text-amber-300 font-black">*</span> : <span className="text-emerald-300/60 font-normal text-xs">(Optional)</span>}
                   </label>
                   <input
                     type="text"
@@ -833,9 +840,9 @@ export const CommunityRecipesScreen: React.FC<CommunityRecipesScreenProps> = ({
                     }
                     value={formDayRate}
                     onChange={(e) => setFormDayRate(e.target.value)}
-                    className="w-full p-2.5 border border-stone-300 rounded-xl focus:border-emerald-700 focus:outline-none font-semibold text-stone-900"
+                    className="w-full p-2.5 bg-[#06261A] border border-emerald-800/80 rounded-xl focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 focus:outline-none font-semibold text-white placeholder:text-emerald-400/50"
                   />
-                  <span className="text-[10px] text-stone-400 font-medium">
+                  <span className="text-[10px] text-emerald-300/80 font-medium">
                     {formAvailableToCook === 'Yes'
                       ? 'Required for caterer profile (events, weddings, parties)'
                       : 'Not required when not available for hire'}
@@ -843,20 +850,20 @@ export const CommunityRecipesScreen: React.FC<CommunityRecipesScreenProps> = ({
                 </div>
               </div>
 
-              <div className="flex justify-end gap-2 pt-3 border-t border-stone-100">
+              <div className="flex justify-end gap-2 pt-3 border-t border-emerald-900/80">
                 <button
                   type="button"
                   onClick={() => setIsAddModalOpen(false)}
-                  className="px-4 py-2 font-bold text-stone-600 hover:bg-stone-100 rounded-xl cursor-pointer"
+                  className="px-4 py-2 font-bold text-emerald-200 hover:text-white hover:bg-[#06261A] rounded-xl cursor-pointer transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="inline-flex items-center gap-2 px-6 py-2.5 font-extrabold text-white bg-emerald-700 hover:bg-emerald-800 rounded-xl shadow-md transition-all cursor-pointer text-xs"
+                  className="inline-flex items-center gap-2 px-6 py-2.5 font-black text-black bg-[#fbf304] hover:bg-yellow-300 border-2 border-black rounded-xl shadow-md transition-all cursor-pointer text-xs"
                 >
                   <span>Continue To Costing</span>
-                  <ArrowRight className="w-4 h-4" />
+                  <ArrowRight className="w-4 h-4 stroke-[2.5]" />
                 </button>
               </div>
             </form>

@@ -514,3 +514,53 @@ export const DEFAULT_PRESET_SUGGESTIONS: PresetSuggestion[] = [
     accompaniments: ['Rich Dark Chocolate Mousse Cups', 'Mini Fruit Tartlets', 'Chocolate Shavings'],
   },
 ];
+
+/**
+ * Checks if a recipe suggestion is a test or incoherent entry
+ */
+export function isInvalidOrTestRecipe(preset: {
+  title?: string;
+  category?: string;
+  accompaniments?: string[];
+}): boolean {
+  if (!preset || !preset.title) return true;
+  const title = (preset.title || '').toLowerCase();
+  const category = (preset.category || '').toLowerCase();
+  const accsText = Array.isArray(preset.accompaniments)
+    ? preset.accompaniments.join(' ').toLowerCase()
+    : '';
+
+  if (
+    title.includes('it must redirect') ||
+    category.includes('it must redirect') ||
+    accsText.includes('it must redirect')
+  ) {
+    return true;
+  }
+
+  if (
+    title.includes('test dinner') ||
+    title === 'test' ||
+    title.startsWith('test ') ||
+    category.includes('test, tester') ||
+    accsText.includes('roasted test') ||
+    accsText.includes('steamed test') ||
+    accsText.includes('fried test') ||
+    accsText.includes('test treamings') ||
+    accsText.includes('test, tester')
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Filters out incoherent and test recipes
+ */
+export function filterOutIncoherentRecipes(presets: PresetSuggestion[]): PresetSuggestion[] {
+  if (!Array.isArray(presets)) return DEFAULT_PRESET_SUGGESTIONS;
+  const filtered = presets.filter((p) => !isInvalidOrTestRecipe(p));
+  return filtered.length > 0 ? filtered : DEFAULT_PRESET_SUGGESTIONS;
+}
+
