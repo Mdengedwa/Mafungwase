@@ -10,7 +10,7 @@ import { CommunityRecipesScreen } from './components/CommunityRecipesScreen';
 import { LogoUploadModal } from './components/LogoUploadModal';
 import { QuickCalculatorModal } from './components/QuickCalculatorModal';
 
-import { OrderItem, Accompaniment, Meal, Quote, StoreSpecial } from './types';
+import { OrderItem, Accompaniment, Meal, Quote, StoreSpecial, RecipeBasketItem } from './types';
 import { INITIAL_ORDER_LIST } from './data/initialOrderList';
 import { INITIAL_STORE_SPECIALS } from './data/initialSpecials';
 import { cleanupExpiredAndInvalidDates } from './utils/dateCleanup';
@@ -21,6 +21,7 @@ import {
   recalculateQuote,
   calculateIngredientRow,
 } from './utils/calculations';
+import { RecipeBasketModal } from './components/RecipeBasketModal';
 
 import defaultLogoImg from './assets/images/food_costing_logo_1786443360654.jpg';
 
@@ -72,6 +73,52 @@ export default function App() {
       (item) => Number(item.packPrice) > 0 || Number(item.pricePerUnit) > 0
     );
   });
+
+  // Recipe Basket State
+  const [basket, setBasket] = useState<RecipeBasketItem[]>(() => {
+    const saved = localStorage.getItem('food_costing_recipe_basket');
+    if (saved) {
+      try {
+        const parsed: RecipeBasketItem[] = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      } catch (e) {
+        console.error('Failed to parse basket items', e);
+      }
+    }
+    return [];
+  });
+
+  useEffect(() => {
+    localStorage.setItem('food_costing_recipe_basket', JSON.stringify(basket));
+  }, [basket]);
+
+  const [isGlobalBasketOpen, setIsGlobalBasketOpen] = useState(false);
+
+  const totalBasketCost = basket.reduce((acc, item) => {
+    const price = Number(item.orderItem.packPrice) || 0;
+    return acc + price * item.quantity;
+  }, 0);
+
+  const handleUpdateBasketQuantity = (orderItemId: string, newQty: number) => {
+    setBasket((prev) =>
+      prev
+        .map((item) => {
+          if (item.orderItem.id === orderItemId) {
+            return { ...item, quantity: Math.max(1, newQty) };
+          }
+          return item;
+        })
+        .filter((item) => item.quantity > 0)
+    );
+  };
+
+  const handleRemoveBasketItem = (orderItemId: string) => {
+    setBasket((prev) => prev.filter((item) => item.orderItem.id !== orderItemId));
+  };
+
+  const handleClearBasket = () => {
+    setBasket([]);
+  };
 
   // Home / Dish Builder Dish State
   const [dishName, setDishName] = useState<string>('Traditional Durban Curry Platter');
@@ -397,6 +444,9 @@ export default function App() {
         accompanimentsCount={accompaniments.length}
         mealsCount={currentMeal.accompanimentIds.length > 0 ? 1 : 0}
         quotesCount={quote.meals.length > 0 ? 1 : 0}
+        basketCount={basket.length}
+        basketTotal={totalBasketCost}
+        onOpenBasket={() => setIsGlobalBasketOpen(true)}
       />
 
       {/* Main Content Body */}
@@ -481,6 +531,12 @@ export default function App() {
             orderList={orderList}
             setOrderList={setOrderList}
             onResetOrderList={() => setOrderList(INITIAL_ORDER_LIST)}
+            basket={basket}
+            setBasket={setBasket}
+            onNavigateToDishBuilder={() => {
+              setActiveTab('dishBuilder');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
           />
         )}
 
@@ -541,6 +597,21 @@ export default function App() {
         isOpen={isQuickCalcOpen}
         onClose={() => setIsQuickCalcOpen(false)}
         onNavigateToDishSetup={() => setActiveTab('dishBuilder')}
+      />
+
+      {/* Global Recipe Basket Modal (Accessible from Header on any tab) */}
+      <RecipeBasketModal
+        isOpen={isGlobalBasketOpen}
+        onClose={() => setIsGlobalBasketOpen(false)}
+        basket={basket}
+        onUpdateQuantity={handleUpdateBasketQuantity}
+        onRemoveItem={handleRemoveBasketItem}
+        onClearBasket={handleClearBasket}
+        onNavigateToDishBuilder={() => {
+          setIsGlobalBasketOpen(false);
+          setActiveTab('dishBuilder');
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
       />
     </div>
   );

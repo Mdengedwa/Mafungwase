@@ -34,6 +34,8 @@ import {
   FileSpreadsheet,
   Download,
   DollarSign,
+  Heart,
+  ShoppingCart,
 } from 'lucide-react';
 import {
   OrderItem,
@@ -43,6 +45,7 @@ import {
   OrderChangeProposal,
   OrderProposalActionType,
   OrderProposalStatus,
+  RecipeBasketItem,
 } from '../types';
 import {
   formatCurrency,
@@ -54,6 +57,7 @@ import { RetailPackUnitsModal } from './RetailPackUnitsModal';
 import { RetailPackGuideItem } from '../data/retailPackUnits';
 import { BulkCsvImportModal } from './BulkCsvImportModal';
 import { QuickPriceUpdateModal } from './QuickPriceUpdateModal';
+import { RecipeBasketModal } from './RecipeBasketModal';
 import { exportOrderListToCsv, downloadCsvFile } from '../utils/csvOrderList';
 import { exportOrderListToExcel } from '../utils/excelOrderList';
 
@@ -61,17 +65,24 @@ const EXECUTIVE_EMAIL = 'biyelamduduzi10@gmail.com';
 const PROPOSALS_STORAGE_KEY = 'mafungwase_order_proposals_v1';
 const USER_EMAIL_STORAGE_KEY = 'mafungwase_user_email';
 const USER_NAME_STORAGE_KEY = 'mafungwase_user_name';
+const BASKET_STORAGE_KEY = 'food_costing_recipe_basket';
 
 interface OrderListScreenProps {
   orderList: OrderItem[];
   setOrderList: React.Dispatch<React.SetStateAction<OrderItem[]>>;
   onResetOrderList: () => void;
+  basket?: RecipeBasketItem[];
+  setBasket?: React.Dispatch<React.SetStateAction<RecipeBasketItem[]>>;
+  onNavigateToDishBuilder?: () => void;
 }
 
 export const OrderListScreen: React.FC<OrderListScreenProps> = ({
   orderList,
   setOrderList,
   onResetOrderList,
+  basket: propBasket,
+  setBasket: propSetBasket,
+  onNavigateToDishBuilder,
 }) => {
   // Search & Filter State
   const [searchTerm, setSearchTerm] = useState('');
@@ -95,7 +106,7 @@ export const OrderListScreen: React.FC<OrderListScreenProps> = ({
 
   // Executive Verification Center Modal
   const [isExecCenterOpen, setIsExecCenterOpen] = useState(false);
-  const [execTab, setExecTab] = useState<'pending' | 'history'>('pending');
+  const [execTab, setExecTab] = useState<'pending' | 'history' | 'tools'>('pending');
 
   // Change Proposals State (Persisted)
   const [proposals, setProposals] = useState<OrderChangeProposal[]>(() => {
@@ -129,8 +140,100 @@ export const OrderListScreen: React.FC<OrderListScreenProps> = ({
   const [isRetailModalOpen, setIsRetailModalOpen] = useState(false);
   const [isBulkCsvModalOpen, setIsBulkCsvModalOpen] = useState(false);
   const [isQuickPriceModalOpen, setIsQuickPriceModalOpen] = useState(false);
+  const [isBasketModalOpen, setIsBasketModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<OrderItem | null>(null);
   const [deleteConfirmItem, setDeleteConfirmItem] = useState<OrderItem | null>(null);
+
+  // Recipe Basket State (Self-managed or prop-managed)
+  const [internalBasket, setInternalBasket] = useState<RecipeBasketItem[]>(() => {
+    const saved = localStorage.getItem(BASKET_STORAGE_KEY);
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      } catch (e) {
+        console.error('Failed to parse basket items', e);
+      }
+    }
+    return [];
+  });
+
+  const basket = propBasket !== undefined ? propBasket : internalBasket;
+  const setBasket = propSetBasket !== undefined ? propSetBasket : setInternalBasket;
+
+  // Persist basket to local storage
+  useEffect(() => {
+    localStorage.setItem(BASKET_STORAGE_KEY, JSON.stringify(basket));
+  }, [basket]);
+
+  // Total calculations based strictly on pack prices
+  const totalBasketPacks = basket.reduce((acc, item) => acc + item.quantity, 0);
+  const totalBasketCost = basket.reduce((acc, item) => {
+    const price = Number(item.orderItem.packPrice) || 0;
+    return acc + price * item.quantity;
+  }, 0);
+
+  const handleToggleBasket = (item: OrderItem) => {
+    const existingIndex = basket.findIndex((b) => b.orderItem.id === item.id);
+    if (existingIndex >= 0) {
+      // If already in basket, increment pack count by 1
+      const updated = [...basket];
+      updated[existingIndex] = {
+        ...updated[existingIndex],
+        quantity: updated[existingIndex].quantity + 1,
+      };
+      setBasket(updated);
+      showNotification(
+        `Added +1 pack of "${item.itemDescription}" to Recipe Basket (Total: ${updated[existingIndex].quantity} packs • ${formatCurrency(updated[existingIndex].quantity * item.packPrice)})!`,
+        'success'
+      );
+    } else {
+      // Add new item to basket with 1 pack
+      const newItem: RecipeBasketItem = {
+        orderItem: item,
+        quantity: 1,
+        addedAt: new Date().toISOString(),
+      };
+      setBasket((prev) => [...prev, newItem]);
+      showNotification(
+        `Added "${item.itemDescription}" to Recipe Basket (${formatCurrency(item.packPrice)} / ${item.packType})!`,
+        'success'
+      );
+    }
+  };
+
+  const handleUpdateBasketQuantity = (orderItemId: string, newQty: number) => {
+    setBasket((prev) =>
+      prev
+        .map((item) => {
+          if (item.orderItem.id === orderItemId) {
+            return { ...item, quantity: Math.max(1, newQty) };
+          }
+          return item;
+        })
+        .filter((item) => item.quantity > 0)
+    );
+  };
+
+  const handleRemoveBasketItem = (orderItemId: string) => {
+    setBasket((prev) => {
+      const removed = prev.find((b) => b.orderItem.id === orderItemId);
+      const filtered = prev.filter((item) => item.orderItem.id !== orderItemId);
+      if (removed) {
+        showNotification(
+          `Removed "${removed.orderItem.itemDescription}" from Recipe Basket.`,
+          'info'
+        );
+      }
+      return filtered;
+    });
+  };
+
+  const handleClearBasket = () => {
+    if (basket.length === 0) return;
+    setBasket([]);
+    showNotification('Recipe Shopping Basket has been cleared.', 'info');
+  };
 
   // Form State
   const [category, setCategory] = useState('Poultry');
@@ -851,111 +954,139 @@ export const OrderListScreen: React.FC<OrderListScreenProps> = ({
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            {/* Quick Price Updater Button */}
+            {/* Recipe Shopping Basket Button (Always Visible to All Users) */}
             <button
-              onClick={() => setIsQuickPriceModalOpen(true)}
-              className={`inline-flex items-center gap-1.5 px-3 py-2 text-xs font-black rounded-xl transition-all shadow-xs cursor-pointer active:scale-95 border ${
-                zeroPriceItemsCount > 0
-                  ? 'bg-amber-400 text-stone-950 border-amber-600 animate-pulse hover:bg-amber-300'
-                  : 'bg-stone-100 text-stone-800 border-stone-300 hover:bg-stone-200'
+              onClick={() => setIsBasketModalOpen(true)}
+              className={`inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-black rounded-xl transition-all shadow-xs cursor-pointer active:scale-95 border ${
+                basket.length > 0
+                  ? 'bg-rose-500 hover:bg-rose-600 text-white border-rose-600 ring-2 ring-rose-400/40'
+                  : 'bg-stone-100 hover:bg-rose-50 text-stone-800 hover:text-rose-700 border-stone-300'
               }`}
-              title="Quickly view and update item prices"
+              title="Open Recipe Shopping Basket"
             >
-              <DollarSign className="w-4 h-4 text-amber-950" />
-              <span>
-                {zeroPriceItemsCount > 0
-                  ? `Update Missing Prices (${zeroPriceItemsCount})`
-                  : 'Quick Price Editor'}
-              </span>
+              <Heart
+                className={`w-4 h-4 ${
+                  basket.length > 0 ? 'fill-white text-white' : 'text-rose-500'
+                }`}
+              />
+              <span>Recipe Basket {basket.length > 0 ? `(${basket.length})` : ''}</span>
+              {basket.length > 0 && (
+                <span className="bg-rose-950 text-rose-100 px-1.5 py-0.5 rounded-md text-[10px] font-black">
+                  {formatCurrency(totalBasketCost)}
+                </span>
+              )}
             </button>
 
-            {/* Bulk Excel & CSV Import Button */}
-            <button
-              onClick={handleOpenBulkImport}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-black text-emerald-950 bg-emerald-400 hover:bg-emerald-300 border border-emerald-600 rounded-xl transition-all shadow-xs cursor-pointer active:scale-95"
-              title="Bulk import ingredients, packaging, suppliers and costs from an Excel (.xlsx, .xls) or CSV file"
-            >
-              <FileSpreadsheet className="w-4 h-4 text-emerald-950 stroke-[2.5]" />
-              <span>Import Excel / CSV</span>
-            </button>
+            {/* Manager / Executive Mode Only Database Management Tools */}
+            {isExecutive && (
+              <>
+                {/* Quick Price Updater Button */}
+                <button
+                  onClick={() => setIsQuickPriceModalOpen(true)}
+                  className={`inline-flex items-center gap-1.5 px-3 py-2 text-xs font-black rounded-xl transition-all shadow-xs cursor-pointer active:scale-95 border ${
+                    zeroPriceItemsCount > 0
+                      ? 'bg-amber-400 text-stone-950 border-amber-600 animate-pulse hover:bg-amber-300'
+                      : 'bg-stone-100 text-stone-800 border-stone-300 hover:bg-stone-200'
+                  }`}
+                  title="Quickly view and update item prices"
+                >
+                  <DollarSign className="w-4 h-4 text-amber-950" />
+                  <span>
+                    {zeroPriceItemsCount > 0
+                      ? `Update Missing Prices (${zeroPriceItemsCount})`
+                      : 'Quick Price Editor'}
+                  </span>
+                </button>
 
-            {/* Export Excel (.xlsx) Button */}
-            <button
-              onClick={handleExportExcel}
-              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-black text-emerald-950 bg-emerald-100 hover:bg-emerald-200 border border-emerald-300 rounded-xl transition-colors cursor-pointer"
-              title="Export all database items to Excel (.xlsx)"
-            >
-              <Download className="w-3.5 h-3.5 text-emerald-800" />
-              <span>Export Excel</span>
-            </button>
+                {/* Bulk Excel & CSV Import Button */}
+                <button
+                  onClick={handleOpenBulkImport}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-black text-emerald-950 bg-emerald-400 hover:bg-emerald-300 border border-emerald-600 rounded-xl transition-all shadow-xs cursor-pointer active:scale-95"
+                  title="Bulk import ingredients, packaging, suppliers and costs from an Excel (.xlsx, .xls) or CSV file"
+                >
+                  <FileSpreadsheet className="w-4 h-4 text-emerald-950 stroke-[2.5]" />
+                  <span>Import Excel / CSV</span>
+                </button>
 
-            {/* Export CSV Button */}
-            <button
-              onClick={handleExportCsv}
-              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-stone-700 bg-stone-100 hover:bg-stone-200 border border-stone-300 rounded-xl transition-colors cursor-pointer"
-              title="Export all database items to CSV"
-            >
-              <Download className="w-3.5 h-3.5" />
-              <span>Export CSV</span>
-            </button>
+                {/* Export Excel (.xlsx) Button */}
+                <button
+                  onClick={handleExportExcel}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-black text-emerald-950 bg-emerald-100 hover:bg-emerald-200 border border-emerald-300 rounded-xl transition-colors cursor-pointer"
+                  title="Export all database items to Excel (.xlsx)"
+                >
+                  <Download className="w-3.5 h-3.5 text-emerald-800" />
+                  <span>Export Excel</span>
+                </button>
 
-            {/* Remove No-Price Items Button */}
-            {zeroPriceItemsCount > 0 && (
-              <button
-                onClick={handleRemoveZeroPriceItems}
-                className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-black text-rose-950 bg-rose-100 hover:bg-rose-200 border border-rose-300 rounded-xl transition-all shadow-2xs cursor-pointer active:scale-95"
-                title="Remove all items with missing or zero prices from the database"
-              >
-                <Trash2 className="w-3.5 h-3.5 text-rose-700" />
-                <span>Remove No-Price Items ({zeroPriceItemsCount})</span>
-              </button>
+                {/* Export CSV Button */}
+                <button
+                  onClick={handleExportCsv}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-stone-700 bg-stone-100 hover:bg-stone-200 border border-stone-300 rounded-xl transition-colors cursor-pointer"
+                  title="Export all database items to CSV"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Export CSV</span>
+                </button>
+
+                {/* Remove No-Price Items Button */}
+                {zeroPriceItemsCount > 0 && (
+                  <button
+                    onClick={handleRemoveZeroPriceItems}
+                    className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-black text-rose-950 bg-rose-100 hover:bg-rose-200 border border-rose-300 rounded-xl transition-all shadow-2xs cursor-pointer active:scale-95"
+                    title="Remove all items with missing or zero prices from the database"
+                  >
+                    <Trash2 className="w-3.5 h-3.5 text-rose-700" />
+                    <span>Remove No-Price Items ({zeroPriceItemsCount})</span>
+                  </button>
+                )}
+
+                <button
+                  onClick={() => setIsRetailModalOpen(true)}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-black text-amber-950 bg-amber-300 hover:bg-amber-400 border border-amber-500 rounded-xl transition-all shadow-2xs cursor-pointer active:scale-95"
+                  title="Open South African Retail Pack & Count Units Reference Guide"
+                >
+                  <PackageCheck className="w-4 h-4 text-amber-900" />
+                  <span>🇿🇦 SA Retail Units Guide</span>
+                </button>
+
+                {orderList.some((item) => !item.isFromCsv && !item.id.startsWith('ord-csv-')) && (
+                  <button
+                    onClick={handlePurgeNonCsvItems}
+                    className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-rose-800 bg-rose-100 hover:bg-rose-200 border border-rose-300 rounded-xl transition-colors cursor-pointer"
+                    title="Remove any items that did not originate from a CSV import"
+                  >
+                    <Trash2 className="w-3.5 h-3.5 text-rose-700" />
+                    <span>Purge Non-CSV Items ({orderList.filter((item) => !item.isFromCsv && !item.id.startsWith('ord-csv-')).length})</span>
+                  </button>
+                )}
+
+                <button
+                  onClick={handleCleanExpiredDates}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-amber-900 bg-amber-100/80 hover:bg-amber-200/90 border border-amber-300 rounded-xl transition-colors cursor-pointer"
+                  title="Automatically remove invalid or expired promotion end dates"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-amber-700" />
+                  Clean Expired Promo Dates
+                </button>
+
+                <button
+                  onClick={handleResetData}
+                  className="inline-flex items-center gap-1 px-3 py-2 text-xs font-semibold text-stone-600 bg-stone-100 hover:bg-stone-200 rounded-xl transition-colors cursor-pointer"
+                  title="Reset Order List to default starter dataset"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  Reset Starter Data
+                </button>
+
+                <button
+                  onClick={handleOpenAdd}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-amber-800 hover:bg-amber-900 rounded-xl shadow-xs transition-colors cursor-pointer"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Add Ingredient/Item</span>
+                </button>
+              </>
             )}
-
-            <button
-              onClick={() => setIsRetailModalOpen(true)}
-              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-black text-amber-950 bg-amber-300 hover:bg-amber-400 border border-amber-500 rounded-xl transition-all shadow-2xs cursor-pointer active:scale-95"
-              title="Open South African Retail Pack & Count Units Reference Guide"
-            >
-              <PackageCheck className="w-4 h-4 text-amber-900" />
-              <span>🇿🇦 SA Retail Units Guide</span>
-            </button>
-
-            {orderList.some((item) => !item.isFromCsv && !item.id.startsWith('ord-csv-')) && (
-              <button
-                onClick={handlePurgeNonCsvItems}
-                className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-rose-800 bg-rose-100 hover:bg-rose-200 border border-rose-300 rounded-xl transition-colors cursor-pointer"
-                title="Remove any items that did not originate from a CSV import"
-              >
-                <Trash2 className="w-3.5 h-3.5 text-rose-700" />
-                <span>Purge Non-CSV Items ({orderList.filter((item) => !item.isFromCsv && !item.id.startsWith('ord-csv-')).length})</span>
-              </button>
-            )}
-
-            <button
-              onClick={handleCleanExpiredDates}
-              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-amber-900 bg-amber-100/80 hover:bg-amber-200/90 border border-amber-300 rounded-xl transition-colors cursor-pointer"
-              title="Automatically remove invalid or expired promotion end dates"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-amber-700" />
-              Clean Expired Promo Dates
-            </button>
-
-            <button
-              onClick={handleResetData}
-              className="inline-flex items-center gap-1 px-3 py-2 text-xs font-semibold text-stone-600 bg-stone-100 hover:bg-stone-200 rounded-xl transition-colors cursor-pointer"
-              title="Reset Order List to default starter dataset"
-            >
-              <RotateCcw className="w-3.5 h-3.5" />
-              Reset Starter Data
-            </button>
-
-            <button
-              onClick={handleOpenAdd}
-              className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-amber-800 hover:bg-amber-900 rounded-xl shadow-xs transition-colors cursor-pointer"
-            >
-              <Plus className="w-4 h-4" />
-              <span>{isExecutive ? 'Add Ingredient/Item' : 'Propose New Item'}</span>
-            </button>
           </div>
         </div>
 
@@ -1086,7 +1217,7 @@ export const OrderListScreen: React.FC<OrderListScreenProps> = ({
                 <th className="p-3">Ending Date</th>
                 <th className="p-3">Location</th>
                 <th className="p-3">Source / Supplier</th>
-                <th className="p-3 w-28 text-center">Actions</th>
+                <th className="p-3 w-32 text-center">{isExecutive ? 'Actions' : 'Recipe Basket'}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-stone-100 bg-white">
@@ -1133,12 +1264,15 @@ export const OrderListScreen: React.FC<OrderListScreenProps> = ({
               ) : (
                 filteredItems.map((item) => {
                   const pendingProposal = pendingByItemId.get(item.id);
+                  const basketItem = basket.find((b) => b.orderItem.id === item.id);
                   return (
                     <tr
                       key={item.id}
                       className={`transition-colors ${
                         pendingProposal
                           ? 'bg-amber-50/60 hover:bg-amber-100/60'
+                          : basketItem
+                          ? 'bg-rose-50/25 hover:bg-rose-50/40'
                           : 'hover:bg-amber-50/30'
                       }`}
                     >
@@ -1233,22 +1367,55 @@ export const OrderListScreen: React.FC<OrderListScreenProps> = ({
 
                       <td className="p-3 text-center">
                         <div className="flex items-center justify-center gap-1">
+                          {/* Heart icon for Add to Recipe Basket - Always Available */}
                           <button
                             type="button"
-                            onClick={() => handleOpenEdit(item)}
-                            className="p-1.5 text-stone-500 hover:text-amber-800 hover:bg-amber-100 rounded-lg transition-colors cursor-pointer"
-                            title={isExecutive ? 'Edit Item' : 'Propose Edit (Requires Email & Executive Verification)'}
+                            onClick={() => handleToggleBasket(item)}
+                            className={`p-1.5 rounded-lg transition-all cursor-pointer ${
+                              basketItem
+                                ? 'text-rose-600 bg-rose-100/80 hover:bg-rose-200 ring-1 ring-rose-300 shadow-2xs'
+                                : 'text-stone-400 hover:text-rose-600 hover:bg-rose-50'
+                            }`}
+                            title={
+                              basketItem
+                                ? `In Recipe Basket: ${basketItem.quantity} ${
+                                    basketItem.quantity === 1 ? 'pack' : 'packs'
+                                  } (${formatCurrency(
+                                    basketItem.quantity * item.packPrice
+                                  )}). Click to add +1 pack.`
+                                : `Add to Recipe Basket (Pack Price: ${formatCurrency(
+                                    item.packPrice
+                                  )})`
+                            }
                           >
-                            <Edit2 className="w-3.5 h-3.5" />
+                            <Heart
+                              className={`w-4 h-4 transition-transform active:scale-125 ${
+                                basketItem ? 'fill-rose-500 text-rose-500' : ''
+                              }`}
+                            />
                           </button>
-                          <button
-                            type="button"
-                            onClick={() => handleOpenDelete(item)}
-                            className="p-1.5 text-stone-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
-                            title={isExecutive ? 'Delete Item' : 'Propose Deletion (Requires Email & Executive Verification)'}
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+
+                          {/* Executive / Manager Only Row Actions */}
+                          {isExecutive && (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => handleOpenEdit(item)}
+                                className="p-1.5 text-stone-500 hover:text-amber-800 hover:bg-amber-100 rounded-lg transition-colors cursor-pointer"
+                                title="Edit Item"
+                              >
+                                <Edit2 className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleOpenDelete(item)}
+                                className="p-1.5 text-stone-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                                title="Delete Item"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -1771,6 +1938,19 @@ export const OrderListScreen: React.FC<OrderListScreenProps> = ({
                   <CheckCircle2 className="w-3.5 h-3.5" />
                   <span>History & Audit Log</span>
                 </button>
+
+                <button
+                  type="button"
+                  onClick={() => setExecTab('tools')}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+                    execTab === 'tools'
+                      ? 'bg-indigo-800 text-white shadow-xs'
+                      : 'bg-stone-100 hover:bg-stone-200 text-stone-600'
+                  }`}
+                >
+                  <Database className="w-3.5 h-3.5" />
+                  <span>Executive Database Tools</span>
+                </button>
               </div>
 
               {execTab === 'pending' && pendingCount > 0 && isExecutive && (
@@ -1885,7 +2065,7 @@ export const OrderListScreen: React.FC<OrderListScreenProps> = ({
                     </div>
                   ))
                 )
-              ) : (
+              ) : execTab === 'history' ? (
                 /* History & Audit Log Tab */
                 <div className="space-y-3">
                   {proposals.filter((p) => p.status !== 'pending').length === 0 ? (
@@ -1937,6 +2117,237 @@ export const OrderListScreen: React.FC<OrderListScreenProps> = ({
                       ))
                   )}
                 </div>
+              ) : (
+                /* Executive Database Tools Tab */
+                <div className="space-y-4">
+                  <div className="p-4 bg-indigo-50/70 border border-indigo-200 rounded-2xl">
+                    <h4 className="font-extrabold text-indigo-950 text-xs flex items-center gap-1.5">
+                      <Database className="w-4 h-4 text-indigo-700" />
+                      Executive Database Control Suite
+                    </h4>
+                    <p className="text-[11px] text-indigo-800/80 mt-1">
+                      Direct executive administrative tools to import, export, bulk-edit, and maintain the master ingredient and pricing catalog.
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* Bulk Excel/CSV Import */}
+                    <div className="p-3.5 bg-white border border-stone-200 rounded-xl flex items-start justify-between gap-3 shadow-2xs">
+                      <div>
+                        <div className="font-bold text-stone-900 text-xs flex items-center gap-1.5">
+                          <FileSpreadsheet className="w-4 h-4 text-emerald-700" />
+                          Import Excel / CSV
+                        </div>
+                        <p className="text-[11px] text-stone-500 mt-1">
+                          Bulk import items, pack sizes, yields, and prices from spreadsheets.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsExecCenterOpen(false);
+                          handleOpenBulkImport();
+                        }}
+                        className="px-3 py-1.5 text-xs font-black text-emerald-950 bg-emerald-400 hover:bg-emerald-300 border border-emerald-600 rounded-xl cursor-pointer shrink-0"
+                      >
+                        Import
+                      </button>
+                    </div>
+
+                    {/* Quick Price Editor */}
+                    <div className="p-3.5 bg-white border border-stone-200 rounded-xl flex items-start justify-between gap-3 shadow-2xs">
+                      <div>
+                        <div className="font-bold text-stone-900 text-xs flex items-center gap-1.5">
+                          <DollarSign className="w-4 h-4 text-amber-700" />
+                          Quick Price Editor
+                        </div>
+                        <p className="text-[11px] text-stone-500 mt-1">
+                          Rapidly scan and update missing or zero prices ({zeroPriceItemsCount} missing).
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsExecCenterOpen(false);
+                          setIsQuickPriceModalOpen(true);
+                        }}
+                        className="px-3 py-1.5 text-xs font-black text-amber-950 bg-amber-400 hover:bg-amber-300 border border-amber-600 rounded-xl cursor-pointer shrink-0"
+                      >
+                        Edit Prices
+                      </button>
+                    </div>
+
+                    {/* Add Single Item */}
+                    <div className="p-3.5 bg-white border border-stone-200 rounded-xl flex items-start justify-between gap-3 shadow-2xs">
+                      <div>
+                        <div className="font-bold text-stone-900 text-xs flex items-center gap-1.5">
+                          <Plus className="w-4 h-4 text-stone-700" />
+                          Add Ingredient / Item
+                        </div>
+                        <p className="text-[11px] text-stone-500 mt-1">
+                          Add a single new ingredient or packaging specification directly.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsExecCenterOpen(false);
+                          handleOpenAdd();
+                        }}
+                        className="px-3 py-1.5 text-xs font-bold text-white bg-amber-800 hover:bg-amber-900 rounded-xl cursor-pointer shrink-0"
+                      >
+                        Add Item
+                      </button>
+                    </div>
+
+                    {/* SA Retail Units Guide */}
+                    <div className="p-3.5 bg-white border border-stone-200 rounded-xl flex items-start justify-between gap-3 shadow-2xs">
+                      <div>
+                        <div className="font-bold text-stone-900 text-xs flex items-center gap-1.5">
+                          <PackageCheck className="w-4 h-4 text-amber-700" />
+                          SA Retail Units Guide
+                        </div>
+                        <p className="text-[11px] text-stone-500 mt-1">
+                          Standard South African retail packaging units reference chart.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsExecCenterOpen(false);
+                          setIsRetailModalOpen(true);
+                        }}
+                        className="px-3 py-1.5 text-xs font-bold text-amber-950 bg-amber-200 hover:bg-amber-300 border border-amber-400 rounded-xl cursor-pointer shrink-0"
+                      >
+                        Open Guide
+                      </button>
+                    </div>
+
+                    {/* Export Excel (.xlsx) */}
+                    <div className="p-3.5 bg-white border border-stone-200 rounded-xl flex items-start justify-between gap-3 shadow-2xs">
+                      <div>
+                        <div className="font-bold text-stone-900 text-xs flex items-center gap-1.5">
+                          <Download className="w-4 h-4 text-emerald-800" />
+                          Export Excel (.xlsx)
+                        </div>
+                        <p className="text-[11px] text-stone-500 mt-1">
+                          Download full database as formatted Excel spreadsheet with calculated columns.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleExportExcel}
+                        className="px-3 py-1.5 text-xs font-bold text-emerald-950 bg-emerald-100 hover:bg-emerald-200 border border-emerald-300 rounded-xl cursor-pointer shrink-0"
+                      >
+                        Export .xlsx
+                      </button>
+                    </div>
+
+                    {/* Export CSV */}
+                    <div className="p-3.5 bg-white border border-stone-200 rounded-xl flex items-start justify-between gap-3 shadow-2xs">
+                      <div>
+                        <div className="font-bold text-stone-900 text-xs flex items-center gap-1.5">
+                          <Download className="w-4 h-4 text-stone-700" />
+                          Export CSV
+                        </div>
+                        <p className="text-[11px] text-stone-500 mt-1">
+                          Download standard raw CSV format for backups or external tools.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleExportCsv}
+                        className="px-3 py-1.5 text-xs font-bold text-stone-700 bg-stone-100 hover:bg-stone-200 border border-stone-300 rounded-xl cursor-pointer shrink-0"
+                      >
+                        Export .csv
+                      </button>
+                    </div>
+
+                    {/* Clean Expired Promo Dates */}
+                    <div className="p-3.5 bg-white border border-stone-200 rounded-xl flex items-start justify-between gap-3 shadow-2xs">
+                      <div>
+                        <div className="font-bold text-stone-900 text-xs flex items-center gap-1.5">
+                          <Sparkles className="w-4 h-4 text-amber-700" />
+                          Clean Expired Promo Dates
+                        </div>
+                        <p className="text-[11px] text-stone-500 mt-1">
+                          Scan and clear past promotion end dates from the database.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleCleanExpiredDates}
+                        className="px-3 py-1.5 text-xs font-bold text-amber-900 bg-amber-100 hover:bg-amber-200 border border-amber-300 rounded-xl cursor-pointer shrink-0"
+                      >
+                        Clean Dates
+                      </button>
+                    </div>
+
+                    {/* Remove Zero/No-Price Items */}
+                    {zeroPriceItemsCount > 0 && (
+                      <div className="p-3.5 bg-white border border-rose-200 rounded-xl flex items-start justify-between gap-3 shadow-2xs">
+                        <div>
+                          <div className="font-bold text-rose-900 text-xs flex items-center gap-1.5">
+                            <Trash2 className="w-4 h-4 text-rose-700" />
+                            Remove No-Price Items ({zeroPriceItemsCount})
+                          </div>
+                          <p className="text-[11px] text-stone-500 mt-1">
+                            Purge items that have no price specified.
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleRemoveZeroPriceItems}
+                          className="px-3 py-1.5 text-xs font-black text-rose-950 bg-rose-100 hover:bg-rose-200 border border-rose-300 rounded-xl cursor-pointer shrink-0"
+                        >
+                          Purge
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Purge Non-CSV Items */}
+                    {orderList.some((item) => !item.isFromCsv && !item.id.startsWith('ord-csv-')) && (
+                      <div className="p-3.5 bg-white border border-rose-200 rounded-xl flex items-start justify-between gap-3 shadow-2xs">
+                        <div>
+                          <div className="font-bold text-rose-900 text-xs flex items-center gap-1.5">
+                            <Trash2 className="w-4 h-4 text-rose-700" />
+                            Purge Non-CSV Items
+                          </div>
+                          <p className="text-[11px] text-stone-500 mt-1">
+                            Remove starter placeholder items that were not imported from CSV.
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handlePurgeNonCsvItems}
+                          className="px-3 py-1.5 text-xs font-bold text-rose-800 bg-rose-100 hover:bg-rose-200 border border-rose-300 rounded-xl cursor-pointer shrink-0"
+                        >
+                          Purge
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Reset Starter Dataset */}
+                    <div className="p-3.5 bg-white border border-stone-200 rounded-xl flex items-start justify-between gap-3 shadow-2xs">
+                      <div>
+                        <div className="font-bold text-stone-900 text-xs flex items-center gap-1.5">
+                          <RotateCcw className="w-4 h-4 text-stone-700" />
+                          Reset Starter Dataset
+                        </div>
+                        <p className="text-[11px] text-stone-500 mt-1">
+                          Restore original default supplier catalog items.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleResetData}
+                        className="px-3 py-1.5 text-xs font-bold text-stone-700 bg-stone-100 hover:bg-stone-200 border border-stone-300 rounded-xl cursor-pointer shrink-0"
+                      >
+                        Reset Data
+                      </button>
+                    </div>
+                  </div>
+                </div>
               )}
             </div>
 
@@ -1981,6 +2392,44 @@ export const OrderListScreen: React.FC<OrderListScreenProps> = ({
         orderList={orderList}
         onSavePrices={handleSaveQuickPrices}
         onRemoveUnpriced={handleRemoveZeroPriceItems}
+      />
+
+      {/* Floating Bottom-Right Recipe Basket Widget */}
+      {basket.length > 0 && (
+        <div className="fixed bottom-6 right-6 z-40 animate-in slide-in-from-bottom-5">
+          <button
+            type="button"
+            onClick={() => setIsBasketModalOpen(true)}
+            className="flex items-center gap-3 px-4 py-3 bg-stone-900 text-white rounded-2xl shadow-2xl border border-stone-700 hover:bg-stone-800 transition-all cursor-pointer group hover:scale-[1.02]"
+          >
+            <div className="w-9 h-9 rounded-xl bg-rose-500 text-white flex items-center justify-center shadow-md shadow-rose-500/30">
+              <Heart className="w-5 h-5 fill-white stroke-white animate-pulse" />
+            </div>
+            <div className="text-left pr-1">
+              <div className="text-xs font-bold text-stone-300">Recipe Basket</div>
+              <div className="text-sm font-black text-amber-400">
+                {formatCurrency(totalBasketCost)}{' '}
+                <span className="text-[11px] font-normal text-stone-400">
+                  ({basket.length} {basket.length === 1 ? 'item' : 'items'} • {totalBasketPacks} pk)
+                </span>
+              </div>
+            </div>
+            <span className="bg-rose-500/20 text-rose-300 border border-rose-500/40 text-[11px] font-bold px-2.5 py-1 rounded-lg group-hover:bg-rose-500 group-hover:text-white transition-colors">
+              View Basket →
+            </span>
+          </button>
+        </div>
+      )}
+
+      {/* Recipe Shopping Basket Modal */}
+      <RecipeBasketModal
+        isOpen={isBasketModalOpen}
+        onClose={() => setIsBasketModalOpen(false)}
+        basket={basket}
+        onUpdateQuantity={handleUpdateBasketQuantity}
+        onRemoveItem={handleRemoveBasketItem}
+        onClearBasket={handleClearBasket}
+        onNavigateToDishBuilder={onNavigateToDishBuilder}
       />
     </div>
   );

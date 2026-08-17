@@ -12,6 +12,7 @@ import {
   Code,
   Lock,
   BookOpen,
+  Heart,
 } from 'lucide-react';
 
 export type ActiveTab =
@@ -35,6 +36,9 @@ interface HeaderProps {
   mealsCount: number;
   quotesCount: number;
   recipesCount?: number;
+  basketCount?: number;
+  basketTotal?: number;
+  onOpenBasket?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -49,6 +53,9 @@ export const Header: React.FC<HeaderProps> = ({
   mealsCount,
   quotesCount,
   recipesCount = 0,
+  basketCount = 0,
+  basketTotal = 0,
+  onOpenBasket,
 }) => {
   // Check if developer mode is enabled via URL search param (?dev=true) or prop or localStorage
   const [isDev, setIsDev] = useState<boolean>(() => {
@@ -191,6 +198,31 @@ export const Header: React.FC<HeaderProps> = ({
 
           {/* Right Action Buttons */}
           <div className="flex items-center gap-2">
+            {/* Recipe Shopping Basket Button */}
+            {onOpenBasket && (
+              <button
+                onClick={onOpenBasket}
+                title="Open Recipe Shopping Basket"
+                className={`text-xs font-black px-3 py-2 rounded-xl transition-all flex items-center gap-1.5 shadow-xs cursor-pointer active:scale-95 border ${
+                  basketCount > 0
+                    ? 'bg-rose-500 hover:bg-rose-600 text-white border-rose-400 ring-2 ring-rose-400/40'
+                    : 'text-rose-100 hover:text-white bg-rose-950/40 hover:bg-rose-900/60 border-rose-800/60'
+                }`}
+              >
+                <Heart
+                  className={`w-4 h-4 ${
+                    basketCount > 0 ? 'fill-white text-white animate-pulse' : 'text-rose-300'
+                  }`}
+                />
+                <span className="hidden sm:inline">Recipe Basket</span>
+                {basketCount > 0 && (
+                  <span className="bg-rose-950 text-rose-100 px-1.5 py-0.5 rounded-full text-[10px] font-black">
+                    {basketCount}
+                  </span>
+                )}
+              </button>
+            )}
+
             {/* Buying Calculator Button (Always accessible) */}
             <button
               onClick={onOpenQuickCalc}

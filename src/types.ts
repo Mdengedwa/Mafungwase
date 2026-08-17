@@ -192,4 +192,12 @@ export interface ChefBookingInquiry {
   status: 'Pending' | 'Contacted' | 'Booked' | 'Declined';
 }
 
+export interface RecipeBasketItem {
+  orderItem: OrderItem;
+  quantity: number; // number of packs to purchase
+  notes?: string;
+  addedAt: string;
+}
+
+
 
