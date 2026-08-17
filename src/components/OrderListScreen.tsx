@@ -31,6 +31,9 @@ import {
   ChevronRight,
   CheckCheck,
   PackageCheck,
+  FileSpreadsheet,
+  Download,
+  DollarSign,
 } from 'lucide-react';
 import {
   OrderItem,
@@ -49,6 +52,10 @@ import {
 import { isDateExpiredOrInvalid, cleanupExpiredAndInvalidDates } from '../utils/dateCleanup';
 import { RetailPackUnitsModal } from './RetailPackUnitsModal';
 import { RetailPackGuideItem } from '../data/retailPackUnits';
+import { BulkCsvImportModal } from './BulkCsvImportModal';
+import { QuickPriceUpdateModal } from './QuickPriceUpdateModal';
+import { exportOrderListToCsv, downloadCsvFile } from '../utils/csvOrderList';
+import { exportOrderListToExcel } from '../utils/excelOrderList';
 
 const EXECUTIVE_EMAIL = 'biyelamduduzi10@gmail.com';
 const PROPOSALS_STORAGE_KEY = 'mafungwase_order_proposals_v1';
@@ -120,6 +127,8 @@ export const OrderListScreen: React.FC<OrderListScreenProps> = ({
   // Modals & Item Form State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isRetailModalOpen, setIsRetailModalOpen] = useState(false);
+  const [isBulkCsvModalOpen, setIsBulkCsvModalOpen] = useState(false);
+  const [isQuickPriceModalOpen, setIsQuickPriceModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<OrderItem | null>(null);
   const [deleteConfirmItem, setDeleteConfirmItem] = useState<OrderItem | null>(null);
 
@@ -147,7 +156,12 @@ export const OrderListScreen: React.FC<OrderListScreenProps> = ({
     setTimeout(() => setNotification(null), 5000);
   };
 
-  // Helper to require email submission before proceeding
+  const handleSaveQuickPrices = (updatedItems: OrderItem[]) => {
+    setOrderList(updatedItems);
+    showNotification(`Successfully updated prices for ${updatedItems.length} items!`, 'success');
+  };
+
+  const zeroPriceItemsCount = orderList.filter((item) => item.packPrice <= 0 || item.pricePerUnit <= 0).length;
   const requireEmailAuth = (action: () => void) => {
     if (!hasSubmittedEmail) {
       setPendingActionAfterEmail(() => action);
@@ -242,13 +256,22 @@ export const OrderListScreen: React.FC<OrderListScreenProps> = ({
     requireEmailAuth(() => {
       if (isExecutive) {
         onResetOrderList();
-        showNotification('Order List has been reset to default starter dataset.');
+        showNotification('Order List cleared of all non-CSV items. Database is ready for CSV import.');
       } else {
         showNotification(
           'Resetting the database is restricted to the Executive Approver.',
           'warning'
         );
       }
+    });
+  };
+
+  const handlePurgeNonCsvItems = () => {
+    requireEmailAuth(() => {
+      const csvOnly = orderList.filter((item) => item.isFromCsv === true || (item.id && item.id.startsWith('ord-csv-')));
+      const removedCount = orderList.length - csvOnly.length;
+      setOrderList(csvOnly);
+      showNotification(`Removed ${removedCount} non-CSV items from Order List database!`, 'success');
     });
   };
 
@@ -326,6 +349,84 @@ export const OrderListScreen: React.FC<OrderListScreenProps> = ({
     requireEmailAuth(() => {
       setDeleteConfirmItem(item);
     });
+  };
+
+  const handleOpenBulkImport = () => {
+    requireEmailAuth(() => {
+      setIsBulkCsvModalOpen(true);
+    });
+  };
+
+  const handleExportCsv = () => {
+    const csvData = exportOrderListToCsv(orderList);
+    downloadCsvFile(
+      `catchup_order_list_${new Date().toISOString().slice(0, 10)}.csv`,
+      csvData
+    );
+    showNotification(`Exported ${orderList.length} Order List database items to CSV!`, 'success');
+  };
+
+  const handleExportExcel = () => {
+    exportOrderListToExcel(
+      orderList,
+      `catchup_order_list_${new Date().toISOString().slice(0, 10)}.xlsx`
+    );
+    showNotification(`Exported ${orderList.length} Order List database items to Excel (.xlsx)!`, 'success');
+  };
+
+  const handleRemoveZeroPriceItems = () => {
+    requireEmailAuth(() => {
+      const pricedItems = orderList.filter(
+        (item) => Number(item.packPrice) > 0 || Number(item.pricePerUnit) > 0
+      );
+      const removedCount = orderList.length - pricedItems.length;
+      if (removedCount === 0) {
+        showNotification('All items in your Order List already have a valid price listed!', 'info');
+        return;
+      }
+      setOrderList(pricedItems);
+      showNotification(`Removed ${removedCount} item${removedCount === 1 ? '' : 's'} with no price listed from Order List!`, 'success');
+    });
+  };
+
+  const handleImportCsvItems = (
+    items: OrderItem[],
+    mode: 'append' | 'update_merge' | 'replace'
+  ) => {
+    if (items.length === 0) return;
+
+    if (mode === 'replace') {
+      setOrderList(items);
+      showNotification(`Replaced database with ${items.length} imported items!`, 'success');
+    } else if (mode === 'update_merge') {
+      setOrderList((prev) => {
+        const updated = [...prev];
+        const newItems: OrderItem[] = [];
+
+        items.forEach((imported) => {
+          const idx = updated.findIndex(
+            (curr) =>
+              curr.itemDescription.trim().toLowerCase() ===
+              imported.itemDescription.trim().toLowerCase()
+          );
+          if (idx >= 0) {
+            updated[idx] = {
+              ...imported,
+              id: updated[idx].id,
+            };
+          } else {
+            newItems.push(imported);
+          }
+        });
+
+        return [...newItems, ...updated];
+      });
+      showNotification(`Updated & merged ${items.length} items in Order List database!`, 'success');
+    } else {
+      // append
+      setOrderList((prev) => [...items, ...prev]);
+      showNotification(`Successfully added ${items.length} items to Order List database!`, 'success');
+    }
   };
 
   // Populate form with item selected from South African Retail Pack Units modal
@@ -750,6 +851,66 @@ export const OrderListScreen: React.FC<OrderListScreenProps> = ({
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
+            {/* Quick Price Updater Button */}
+            <button
+              onClick={() => setIsQuickPriceModalOpen(true)}
+              className={`inline-flex items-center gap-1.5 px-3 py-2 text-xs font-black rounded-xl transition-all shadow-xs cursor-pointer active:scale-95 border ${
+                zeroPriceItemsCount > 0
+                  ? 'bg-amber-400 text-stone-950 border-amber-600 animate-pulse hover:bg-amber-300'
+                  : 'bg-stone-100 text-stone-800 border-stone-300 hover:bg-stone-200'
+              }`}
+              title="Quickly view and update item prices"
+            >
+              <DollarSign className="w-4 h-4 text-amber-950" />
+              <span>
+                {zeroPriceItemsCount > 0
+                  ? `Update Missing Prices (${zeroPriceItemsCount})`
+                  : 'Quick Price Editor'}
+              </span>
+            </button>
+
+            {/* Bulk Excel & CSV Import Button */}
+            <button
+              onClick={handleOpenBulkImport}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-black text-emerald-950 bg-emerald-400 hover:bg-emerald-300 border border-emerald-600 rounded-xl transition-all shadow-xs cursor-pointer active:scale-95"
+              title="Bulk import ingredients, packaging, suppliers and costs from an Excel (.xlsx, .xls) or CSV file"
+            >
+              <FileSpreadsheet className="w-4 h-4 text-emerald-950 stroke-[2.5]" />
+              <span>Import Excel / CSV</span>
+            </button>
+
+            {/* Export Excel (.xlsx) Button */}
+            <button
+              onClick={handleExportExcel}
+              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-black text-emerald-950 bg-emerald-100 hover:bg-emerald-200 border border-emerald-300 rounded-xl transition-colors cursor-pointer"
+              title="Export all database items to Excel (.xlsx)"
+            >
+              <Download className="w-3.5 h-3.5 text-emerald-800" />
+              <span>Export Excel</span>
+            </button>
+
+            {/* Export CSV Button */}
+            <button
+              onClick={handleExportCsv}
+              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-stone-700 bg-stone-100 hover:bg-stone-200 border border-stone-300 rounded-xl transition-colors cursor-pointer"
+              title="Export all database items to CSV"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>Export CSV</span>
+            </button>
+
+            {/* Remove No-Price Items Button */}
+            {zeroPriceItemsCount > 0 && (
+              <button
+                onClick={handleRemoveZeroPriceItems}
+                className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-black text-rose-950 bg-rose-100 hover:bg-rose-200 border border-rose-300 rounded-xl transition-all shadow-2xs cursor-pointer active:scale-95"
+                title="Remove all items with missing or zero prices from the database"
+              >
+                <Trash2 className="w-3.5 h-3.5 text-rose-700" />
+                <span>Remove No-Price Items ({zeroPriceItemsCount})</span>
+              </button>
+            )}
+
             <button
               onClick={() => setIsRetailModalOpen(true)}
               className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-black text-amber-950 bg-amber-300 hover:bg-amber-400 border border-amber-500 rounded-xl transition-all shadow-2xs cursor-pointer active:scale-95"
@@ -758,6 +919,17 @@ export const OrderListScreen: React.FC<OrderListScreenProps> = ({
               <PackageCheck className="w-4 h-4 text-amber-900" />
               <span>🇿🇦 SA Retail Units Guide</span>
             </button>
+
+            {orderList.some((item) => !item.isFromCsv && !item.id.startsWith('ord-csv-')) && (
+              <button
+                onClick={handlePurgeNonCsvItems}
+                className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-rose-800 bg-rose-100 hover:bg-rose-200 border border-rose-300 rounded-xl transition-colors cursor-pointer"
+                title="Remove any items that did not originate from a CSV import"
+              >
+                <Trash2 className="w-3.5 h-3.5 text-rose-700" />
+                <span>Purge Non-CSV Items ({orderList.filter((item) => !item.isFromCsv && !item.id.startsWith('ord-csv-')).length})</span>
+              </button>
+            )}
 
             <button
               onClick={handleCleanExpiredDates}
@@ -808,6 +980,45 @@ export const OrderListScreen: React.FC<OrderListScreenProps> = ({
             >
               ×
             </button>
+          </div>
+        )}
+
+        {/* Missing Prices Warning Banner */}
+        {zeroPriceItemsCount > 0 && (
+          <div className="bg-amber-50 border-2 border-amber-400 p-4 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs shadow-xs animate-in fade-in">
+            <div className="flex items-start sm:items-center gap-2.5">
+              <div className="p-2 bg-amber-200 text-amber-950 rounded-xl shrink-0">
+                <DollarSign className="w-4 h-4" />
+              </div>
+              <div>
+                <span className="font-extrabold text-stone-900 block text-sm">
+                  {zeroPriceItemsCount} {zeroPriceItemsCount === 1 ? 'item has' : 'items have'} missing prices (R 0.00)
+                </span>
+                <p className="text-stone-600 text-[11px] mt-0.5">
+                  Update pack prices now to automatically calculate price per kg/litre for your food costing.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
+              <button
+                type="button"
+                onClick={handleRemoveZeroPriceItems}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-black text-rose-950 bg-rose-100 hover:bg-rose-200 border border-rose-300 rounded-xl shadow-xs transition-all cursor-pointer whitespace-nowrap active:scale-95"
+                title="Remove all items that have zero or missing price"
+              >
+                <Trash2 className="w-3.5 h-3.5 text-rose-700" />
+                <span>Remove Unpriced Items</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setIsQuickPriceModalOpen(true)}
+                className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-black text-amber-950 bg-amber-400 hover:bg-amber-300 border border-amber-600 rounded-xl shadow-xs transition-all cursor-pointer whitespace-nowrap active:scale-95"
+              >
+                <DollarSign className="w-3.5 h-3.5" />
+                <span>Update Prices Now</span>
+              </button>
+            </div>
           </div>
         )}
 
@@ -879,7 +1090,41 @@ export const OrderListScreen: React.FC<OrderListScreenProps> = ({
               </tr>
             </thead>
             <tbody className="divide-y divide-stone-100 bg-white">
-              {filteredItems.length === 0 ? (
+              {orderList.length === 0 ? (
+                <tr>
+                  <td colSpan={10} className="p-12 text-center bg-stone-50/50">
+                    <div className="max-w-md mx-auto space-y-3">
+                      <div className="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-800 flex items-center justify-center mx-auto">
+                        <FileSpreadsheet className="w-6 h-6" />
+                      </div>
+                      <h4 className="font-extrabold text-stone-900 text-sm">
+                        Order List Database Is Empty
+                      </h4>
+                      <p className="text-xs text-stone-500 leading-relaxed">
+                        All non-CSV placeholder items have been removed. You can now bulk import all your ingredients, packaging, suppliers, and prices from a CSV file.
+                      </p>
+                      <div className="pt-2 flex items-center justify-center gap-2">
+                        <button
+                          type="button"
+                          onClick={handleOpenBulkImport}
+                          className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-black text-emerald-950 bg-emerald-400 hover:bg-emerald-300 border border-emerald-600 rounded-xl transition-all shadow-xs cursor-pointer"
+                        >
+                          <FileSpreadsheet className="w-4 h-4" />
+                          <span>Bulk Import from CSV</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleOpenAdd}
+                          className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-stone-700 bg-white hover:bg-stone-100 border border-stone-300 rounded-xl cursor-pointer"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>Add Single Item</span>
+                        </button>
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+              ) : filteredItems.length === 0 ? (
                 <tr>
                   <td colSpan={10} className="p-8 text-center text-stone-400 bg-stone-50/50">
                     No items found matching search or filter.
@@ -924,14 +1169,33 @@ export const OrderListScreen: React.FC<OrderListScreenProps> = ({
                         {item.packType}: {item.packWeight} {item.packUnit}
                       </td>
 
-                      <td className="p-3 font-semibold text-stone-800">
-                        {formatCurrency(item.packPrice)}
+                      <td className="p-3 font-semibold text-stone-800 whitespace-nowrap">
+                        {item.packPrice > 0 ? (
+                          <span>{formatCurrency(item.packPrice)}</span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEdit(item)}
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-black bg-amber-200 text-amber-950 border border-amber-400 hover:bg-amber-300 transition-all cursor-pointer shadow-2xs"
+                            title="Pack Price is missing. Click to enter price"
+                          >
+                            <span>R 0.00</span>
+                            <Edit2 className="w-3 h-3 text-amber-900" />
+                            <span className="text-[10px] uppercase tracking-wider">(Set Price)</span>
+                          </button>
+                        )}
                       </td>
 
-                      <td className="p-3">
-                        <span className="font-extrabold text-amber-900 bg-amber-50 px-2 py-1 rounded-md border border-amber-200">
-                          {formatCurrency(item.pricePerUnit)} / {item.baseUnit}
-                        </span>
+                      <td className="p-3 whitespace-nowrap">
+                        {item.pricePerUnit > 0 ? (
+                          <span className="font-extrabold text-amber-900 bg-amber-50 px-2 py-1 rounded-md border border-amber-200 text-xs">
+                            {formatCurrency(item.pricePerUnit)} / {item.baseUnit}
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 font-bold text-rose-800 bg-rose-50 px-2 py-1 rounded-md border border-rose-200 text-xs">
+                            <span>R 0.00 / {item.baseUnit}</span>
+                          </span>
+                        )}
                       </td>
 
                       <td className="p-3">
@@ -1698,6 +1962,25 @@ export const OrderListScreen: React.FC<OrderListScreenProps> = ({
         isOpen={isRetailModalOpen}
         onClose={() => setIsRetailModalOpen(false)}
         onSelectUnit={handleSelectRetailUnitInOrderList}
+      />
+
+      {/* Bulk CSV Import Modal */}
+      <BulkCsvImportModal
+        isOpen={isBulkCsvModalOpen}
+        onClose={() => setIsBulkCsvModalOpen(false)}
+        currentOrderList={orderList}
+        isExecutive={isExecutive}
+        userEmail={userEmail || 'Active User'}
+        onImportItems={handleImportCsvItems}
+      />
+
+      {/* Quick Price Update Modal */}
+      <QuickPriceUpdateModal
+        isOpen={isQuickPriceModalOpen}
+        onClose={() => setIsQuickPriceModalOpen(false)}
+        orderList={orderList}
+        onSavePrices={handleSaveQuickPrices}
+        onRemoveUnpriced={handleRemoveZeroPriceItems}
       />
     </div>
   );

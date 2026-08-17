@@ -18,6 +18,7 @@ export interface OrderItem {
   sourceUrl?: string;
   endingDate?: string;
   location?: string;
+  isFromCsv?: boolean;
 }
 
 export interface AccompanimentIngredient {

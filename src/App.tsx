@@ -50,17 +50,27 @@ export default function App() {
     return saved;
   });
 
-  // Order List State
+  // Order List State (Strictly holds items with a valid listed price)
   const [orderList, setOrderList] = useState<OrderItem[]>(() => {
     const saved = localStorage.getItem('food_costing_order_list');
     if (saved) {
       try {
-        return JSON.parse(saved);
+        const parsed: OrderItem[] = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          // Keep only items that have a price listed (> 0) and came from bulk file import or custom entry
+          return parsed.filter(
+            (item) =>
+              (item.isFromCsv === true || (item.id && item.id.startsWith('ord-csv-'))) &&
+              (Number(item.packPrice) > 0 || Number(item.pricePerUnit) > 0)
+          );
+        }
       } catch (e) {
         console.error('Failed to parse saved order list', e);
       }
     }
-    return INITIAL_ORDER_LIST;
+    return INITIAL_ORDER_LIST.filter(
+      (item) => Number(item.packPrice) > 0 || Number(item.pricePerUnit) > 0
+    );
   });
 
   // Home / Dish Builder Dish State
@@ -130,19 +140,29 @@ export default function App() {
     localStorage.setItem('food_costing_store_specials', JSON.stringify(specials));
   }, [specials]);
 
-  // Automatically remove invalid & expired promotion end dates & deduplicate on mount
+  // Automatically remove invalid & expired promotion end dates, deduplicate, and enforce priced items on mount
   useEffect(() => {
+    // Purge any legacy non-CSV items or items with no price listed
+    const validItems = orderList.filter(
+      (item) =>
+        (item.isFromCsv === true || (item.id && item.id.startsWith('ord-csv-'))) &&
+        (Number(item.packPrice) > 0 || Number(item.pricePerUnit) > 0)
+    );
+
     const {
       cleanedOrderList,
       cleanedSpecials,
       removedOrderDatesCount,
-      expiredSpecialsCount,
-    } = cleanupExpiredAndInvalidDates(orderList, specials);
+    } = cleanupExpiredAndInvalidDates(validItems, specials);
+
+    const finalOrderList = cleanedOrderList.filter(
+      (item) => Number(item.packPrice) > 0 || Number(item.pricePerUnit) > 0
+    );
 
     const deduplicated = sanitizeAndDeduplicateSpecials(cleanedSpecials);
 
-    if (removedOrderDatesCount > 0) {
-      setOrderList(cleanedOrderList);
+    if (finalOrderList.length !== orderList.length || removedOrderDatesCount > 0) {
+      setOrderList(finalOrderList);
     }
     setSpecials(deduplicated);
   }, []);
