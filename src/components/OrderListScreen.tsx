@@ -76,6 +76,8 @@ interface OrderListScreenProps {
   basket?: RecipeBasketItem[];
   setBasket?: React.Dispatch<React.SetStateAction<RecipeBasketItem[]>>;
   onNavigateToDishBuilder?: () => void;
+  targetItemId?: string | null;
+  onClearTargetItemId?: () => void;
 }
 
 export const OrderListScreen: React.FC<OrderListScreenProps> = ({
@@ -85,11 +87,14 @@ export const OrderListScreen: React.FC<OrderListScreenProps> = ({
   basket: propBasket,
   setBasket: propSetBasket,
   onNavigateToDishBuilder,
+  targetItemId,
+  onClearTargetItemId,
 }) => {
   // Search & Filter State
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [filterPendingOnly, setFilterPendingOnly] = useState<boolean>(false);
+  const [highlightedItemId, setHighlightedItemId] = useState<string | null>(null);
 
   // User Identity & Verification State
   const [userEmail, setUserEmail] = useState<string>(() => {
@@ -483,6 +488,33 @@ export const OrderListScreen: React.FC<OrderListScreenProps> = ({
       setDeleteConfirmItem(item);
     });
   };
+
+  // Auto-focus and open edit modal when redirected from AccompanimentScreen / MealScreen
+  useEffect(() => {
+    if (targetItemId) {
+      const target = orderList.find((i) => i.id === targetItemId);
+      if (target) {
+        setSelectedCategory('All');
+        setSearchTerm(target.itemDescription);
+        setHighlightedItemId(target.id);
+
+        setTimeout(() => {
+          const rowEl = document.getElementById(`order-item-${target.id}`);
+          if (rowEl) {
+            rowEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+        }, 150);
+
+        if (isEffectiveManager) {
+          handleOpenEdit(target);
+        } else {
+          setIsPasswordModalOpen(true);
+          showNotification(`Navigated to "${target.itemDescription}". Enter PIN 1234 to enable Manager Mode and edit.`, 'info');
+        }
+      }
+      onClearTargetItemId?.();
+    }
+  }, [targetItemId, orderList, isEffectiveManager]);
 
   const handleOpenBulkImport = () => {
     requireEmailAuth(() => {
@@ -1293,11 +1325,15 @@ export const OrderListScreen: React.FC<OrderListScreenProps> = ({
                 filteredItems.map((item) => {
                   const pendingProposal = pendingByItemId.get(item.id);
                   const basketItem = basket.find((b) => b.orderItem.id === item.id);
+                  const isTargetHighlighted = highlightedItemId === item.id;
                   return (
                     <tr
                       key={item.id}
+                      id={`order-item-${item.id}`}
                       className={`transition-colors ${
-                        pendingProposal
+                        isTargetHighlighted
+                          ? 'bg-amber-100/90 ring-2 ring-amber-500 shadow-sm'
+                          : pendingProposal
                           ? 'bg-amber-50/60 hover:bg-amber-100/60'
                           : basketItem
                           ? 'bg-rose-50/25 hover:bg-rose-50/40'
@@ -1423,8 +1459,8 @@ export const OrderListScreen: React.FC<OrderListScreenProps> = ({
                             />
                           </button>
 
-                          {/* Manager Only Row Actions */}
-                          {isEffectiveManager && (
+                          {/* Manager / Edit Row Actions */}
+                          {isEffectiveManager ? (
                             <>
                               <button
                                 type="button"
@@ -1443,6 +1479,18 @@ export const OrderListScreen: React.FC<OrderListScreenProps> = ({
                                 <Trash2 className="w-3.5 h-3.5" />
                               </button>
                             </>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setIsPasswordModalOpen(true);
+                                showNotification('Unlock Manager Mode (PIN: 1234) to edit item.', 'info');
+                              }}
+                              className="p-1.5 text-stone-400 hover:text-amber-800 hover:bg-amber-100/80 rounded-lg transition-colors cursor-pointer"
+                              title="Edit in Manager Mode (Requires PIN)"
+                            >
+                              <Edit2 className="w-3.5 h-3.5" />
+                            </button>
                           )}
                         </div>
                       </td>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Plus,
   Trash2,
@@ -10,6 +10,7 @@ import {
   AlertCircle,
   ArrowRight,
   Info,
+  ExternalLink,
   CheckCircle2,
   PieChart as PieChartIcon,
   Camera,
@@ -20,6 +21,8 @@ import {
   ChevronDown,
   ChevronUp,
   PackageCheck,
+  Search,
+  X,
 } from 'lucide-react';
 import {
   Accompaniment,
@@ -46,6 +49,7 @@ interface AccompanimentScreenProps {
   setAccompaniments: React.Dispatch<React.SetStateAction<Accompaniment[]>>;
   orderList: OrderItem[];
   onContinueToMeal: () => void;
+  onNavigateToOrderList?: (orderItemId: string) => void;
 }
 
 export const AccompanimentScreen: React.FC<AccompanimentScreenProps> = ({
@@ -53,11 +57,61 @@ export const AccompanimentScreen: React.FC<AccompanimentScreenProps> = ({
   setAccompaniments,
   orderList,
   onContinueToMeal,
+  onNavigateToOrderList,
 }) => {
   const [activeAccIndex, setActiveAccIndex] = useState<number>(0);
   const [viewMode, setViewMode] = useState<'simple' | 'detailed'>('simple');
   const [isSpoonModalOpen, setIsSpoonModalOpen] = useState<boolean>(false);
   const [isRetailModalOpen, setIsRetailModalOpen] = useState<boolean>(false);
+
+  // Controlled dropdown and quick ingredient searcher states
+  const [selectedOrderListId, setSelectedOrderListId] = useState<string>('');
+  const [isSearchModalOpen, setIsSearchModalOpen] = useState<boolean>(false);
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [searchCategory, setSearchCategory] = useState<string>('all');
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => {
+      setToastMessage((prev) => (prev === msg ? null : prev));
+    }, 2800);
+  };
+
+  // Group and sort Order List items by category for high performance and clean navigation
+  const groupedOrderList = useMemo<Record<string, OrderItem[]>>(() => {
+    const groups: Record<string, OrderItem[]> = {};
+    orderList.forEach((item) => {
+      const cat = item.category || 'General';
+      if (!groups[cat]) groups[cat] = [];
+      groups[cat].push(item);
+    });
+    // Sort items alphabetically inside each category
+    Object.keys(groups).forEach((cat) => {
+      groups[cat].sort((a, b) => a.itemDescription.localeCompare(b.itemDescription));
+    });
+    return groups;
+  }, [orderList]);
+
+  // Categories list for filter
+  const availableCategories = useMemo(() => {
+    const cats = Array.from(new Set(orderList.map((i) => i.category || 'General'))).sort();
+    return cats;
+  }, [orderList]);
+
+  // Filtered order items for search modal
+  const filteredSearchItems = useMemo(() => {
+    const q = searchQuery.toLowerCase().trim();
+    return orderList.filter((item) => {
+      const matchesCategory = searchCategory === 'all' || item.category === searchCategory;
+      const matchesText =
+        !q ||
+        item.itemDescription.toLowerCase().includes(q) ||
+        (item.category && item.category.toLowerCase().includes(q)) ||
+        (item.source && item.source.toLowerCase().includes(q));
+      return matchesCategory && matchesText;
+    });
+  }, [orderList, searchQuery, searchCategory]);
 
   // App Manager Mode State (persisted)
   const [isManagerMode] = useState<boolean>(() => {
@@ -176,6 +230,7 @@ export const AccompanimentScreen: React.FC<AccompanimentScreenProps> = ({
           eyPercent: selectedItem.estYieldPercent,
           costPerUnit: selectedItem.pricePerUnit,
         });
+        showToast(`Added "${selectedItem.itemDescription}" (${formatCurrency(selectedItem.pricePerUnit)}/${selectedItem.baseUnit})`);
       } else {
         newIng = calculateIngredientRow({
           name: 'Custom Ingredient',
@@ -186,6 +241,7 @@ export const AccompanimentScreen: React.FC<AccompanimentScreenProps> = ({
           eyPercent: 1.0,
           costPerUnit: 0,
         });
+        showToast('Added custom ingredient row');
       }
     } else {
       newIng = calculateIngredientRow({
@@ -197,6 +253,7 @@ export const AccompanimentScreen: React.FC<AccompanimentScreenProps> = ({
         eyPercent: 1.0,
         costPerUnit: 0,
       });
+      showToast('Added new custom ingredient row');
     }
 
     const updatedAcc = {
@@ -204,6 +261,7 @@ export const AccompanimentScreen: React.FC<AccompanimentScreenProps> = ({
       ingredients: [...activeAcc.ingredients, newIng],
     };
     updateActiveAcc(updatedAcc);
+    setSelectedOrderListId('');
   };
 
   // Add ingredient selected from South African Retail Pack Units Guide
@@ -654,6 +712,47 @@ export const AccompanimentScreen: React.FC<AccompanimentScreenProps> = ({
 
             {/* Add Ingredient Button & Quick Units */}
             <div className="flex items-center flex-wrap gap-2">
+              {/* Quick Search Ingredients Button */}
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchQuery('');
+                  setSearchCategory('all');
+                  setIsSearchModalOpen(true);
+                }}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-extrabold text-emerald-950 bg-white hover:bg-emerald-50 border border-emerald-300 rounded-xl transition-all shadow-2xs cursor-pointer active:scale-95"
+                title="Search and select ingredients with instant filter"
+              >
+                <Search className="w-3.5 h-3.5 text-emerald-700" />
+                <span>Search Ingredients</span>
+              </button>
+
+              {/* Controlled Responsive Dropdown with Categorized Optgroups */}
+              <select
+                value={selectedOrderListId}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val) {
+                    handleAddIngredient(val);
+                  }
+                }}
+                className="max-w-[240px] sm:max-w-xs md:max-w-sm px-3 py-1.5 text-xs font-bold bg-emerald-50/90 hover:bg-emerald-100/90 border border-emerald-300 text-emerald-950 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-600 focus:outline-none cursor-pointer transition-all truncate"
+                aria-label="Add ingredient from order list database"
+              >
+                <option value="" disabled>
+                  + Add from Order List...
+                </option>
+                {Object.entries(groupedOrderList).map(([category, items]: [string, OrderItem[]]) => (
+                  <optgroup key={category} label={`📂 ${category} (${items.length})`}>
+                    {items.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.itemDescription} ({formatCurrency(item.pricePerUnit)}/{item.baseUnit})
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
+
               {isManagerMode && (
                 <button
                   type="button"
@@ -666,31 +765,10 @@ export const AccompanimentScreen: React.FC<AccompanimentScreenProps> = ({
                 </button>
               )}
 
-              <select
-                onChange={(e) => {
-                  if (e.target.value) {
-                    handleAddIngredient(e.target.value);
-                    e.target.value = '';
-                  }
-                }}
-                className="px-3 py-1.5 text-xs font-semibold bg-emerald-50/70 hover:bg-emerald-100 border border-emerald-200 text-emerald-950 rounded-xl focus:outline-none cursor-pointer"
-                defaultValue=""
-              >
-                <option value="" disabled>
-                  + Add from Order List...
-                </option>
-                {orderList.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    [{item.category}] {item.itemDescription} ({formatCurrency(item.pricePerUnit)}/
-                    {item.baseUnit})
-                  </option>
-                ))}
-              </select>
-
               <button
                 type="button"
                 onClick={() => handleAddIngredient()}
-                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-extrabold text-emerald-950 bg-emerald-100 hover:bg-emerald-200 border border-emerald-300 rounded-xl transition-colors shadow-2xs"
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-extrabold text-emerald-950 bg-emerald-100 hover:bg-emerald-200 border border-emerald-300 rounded-xl transition-colors shadow-2xs cursor-pointer active:scale-95"
               >
                 <Plus className="w-3.5 h-3.5 text-emerald-800" />
                 Custom
@@ -749,10 +827,14 @@ export const AccompanimentScreen: React.FC<AccompanimentScreenProps> = ({
                               className="w-full text-xs font-semibold bg-white border border-stone-300 rounded-lg p-1.5 focus:border-emerald-600 focus:outline-none text-stone-900"
                             >
                               <option value="manual">-- Manual / Custom Ingredient --</option>
-                              {orderList.map((item) => (
-                                <option key={item.id} value={item.id}>
-                                  [{item.category}] {item.itemDescription}
-                                </option>
+                              {Object.entries(groupedOrderList).map(([category, items]: [string, OrderItem[]]) => (
+                                <optgroup key={category} label={`📂 ${category}`}>
+                                  {items.map((item) => (
+                                    <option key={item.id} value={item.id}>
+                                      {item.itemDescription} ({formatCurrency(item.pricePerUnit)}/{item.baseUnit})
+                                    </option>
+                                  ))}
+                                </optgroup>
                               ))}
                             </select>
                           </div>
@@ -775,10 +857,27 @@ export const AccompanimentScreen: React.FC<AccompanimentScreenProps> = ({
                             </div>
                           ) : (
                             <div className="flex items-center gap-1 text-[11px] text-stone-500 pl-1">
-                              <Link2 className="w-3 h-3 text-emerald-700" />
-                              <span className="font-semibold text-emerald-900">
-                                Linked to Order List ({ing.baseUnit ? `R/${ing.baseUnit}` : 'R/kg'})
-                              </span>
+                              {ing.orderItemId && onNavigateToOrderList ? (
+                                <button
+                                  type="button"
+                                  onClick={() => onNavigateToOrderList(ing.orderItemId!)}
+                                  className="inline-flex items-center gap-1 font-bold text-emerald-800 hover:text-emerald-950 hover:underline decoration-emerald-500/70 underline-offset-2 transition-colors cursor-pointer group text-left"
+                                  title={`View/Edit "${ing.name}" in Order List database (Manager Mode)`}
+                                >
+                                  <Link2 className="w-3 h-3 text-emerald-700 group-hover:text-emerald-950 transition-colors shrink-0" />
+                                  <span>
+                                    Linked to Order List ({ing.baseUnit ? `R/${ing.baseUnit}` : 'R/kg'})
+                                  </span>
+                                  <ExternalLink className="w-2.5 h-2.5 opacity-60 group-hover:opacity-100 transition-opacity shrink-0" />
+                                </button>
+                              ) : (
+                                <div className="flex items-center gap-1">
+                                  <Link2 className="w-3 h-3 text-emerald-700 shrink-0" />
+                                  <span className="font-semibold text-emerald-900">
+                                    Linked to Order List ({ing.baseUnit ? `R/${ing.baseUnit}` : 'R/kg'})
+                                  </span>
+                                </div>
+                              )}
                             </div>
                           )}
                         </div>
@@ -898,16 +997,29 @@ export const AccompanimentScreen: React.FC<AccompanimentScreenProps> = ({
                         </span>
                       </td>
 
-                      {/* Delete */}
+                      {/* Actions: Info & Delete */}
                       <td className="p-3 text-center">
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteIngredient(ing.id)}
-                          className="p-1.5 text-stone-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
-                          title="Delete Ingredient"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        <div className="flex items-center justify-center gap-1">
+                          {ing.orderItemId && onNavigateToOrderList && (
+                            <button
+                              type="button"
+                              onClick={() => onNavigateToOrderList(ing.orderItemId!)}
+                              className="p-1.5 text-emerald-700 hover:text-emerald-950 hover:bg-emerald-100 rounded-lg transition-colors cursor-pointer"
+                              title={`More Information: View & Edit "${ing.name}" in Order List (Manager Mode)`}
+                              aria-label="More information / Edit item in Order List"
+                            >
+                              <Info className="w-4 h-4" />
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteIngredient(ing.id)}
+                            className="p-1.5 text-stone-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                            title="Delete Ingredient"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))
@@ -1111,6 +1223,167 @@ export const AccompanimentScreen: React.FC<AccompanimentScreenProps> = ({
         onClose={() => setIsRetailModalOpen(false)}
         onSelectUnit={handleSelectRetailUnit}
       />
+
+      {/* Quick Search & Pick Ingredients Modal */}
+      {isSearchModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
+          <div
+            className="bg-white rounded-3xl max-w-2xl w-full max-h-[85vh] flex flex-col shadow-2xl border-2 border-emerald-800 overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="p-5 bg-gradient-to-r from-emerald-800 to-emerald-900 text-white flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-black flex items-center gap-2">
+                  <Search className="w-5 h-5 text-emerald-300" />
+                  Add Ingredients to {activeAcc.name}
+                </h3>
+                <p className="text-xs text-emerald-200 mt-0.5">
+                  Browse {orderList.length} master ingredients or search by name / category
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsSearchModalOpen(false)}
+                className="p-1.5 rounded-full hover:bg-emerald-700/60 text-white transition-colors cursor-pointer"
+                title="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Search Bar & Category Filters */}
+            <div className="p-4 bg-emerald-50/50 border-b border-emerald-100 space-y-3">
+              <div className="relative">
+                <Search className="w-4 h-4 text-emerald-700 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Type to search e.g. Chicken, Onion, Rice, Oil, Cheese..."
+                  className="w-full pl-10 pr-9 py-2.5 bg-white border-2 border-emerald-300 rounded-xl text-xs font-bold text-stone-900 placeholder:text-stone-400 focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20"
+                  autoFocus
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-700"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+
+              {/* Category Pills */}
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none text-xs">
+                <button
+                  type="button"
+                  onClick={() => setSearchCategory('all')}
+                  className={`px-3 py-1 rounded-lg font-bold text-[11px] whitespace-nowrap transition-all cursor-pointer ${
+                    searchCategory === 'all'
+                      ? 'bg-emerald-800 text-white shadow-2xs'
+                      : 'bg-white text-stone-600 border border-stone-200 hover:bg-emerald-50'
+                  }`}
+                >
+                  All Categories ({orderList.length})
+                </button>
+                {availableCategories.map((cat) => {
+                  const count = orderList.filter((i) => (i.category || 'General') === cat).length;
+                  return (
+                    <button
+                      key={cat}
+                      type="button"
+                      onClick={() => setSearchCategory(cat)}
+                      className={`px-3 py-1 rounded-lg font-bold text-[11px] whitespace-nowrap transition-all cursor-pointer ${
+                        searchCategory === cat
+                          ? 'bg-emerald-800 text-white shadow-2xs'
+                          : 'bg-white text-stone-600 border border-stone-200 hover:bg-emerald-50'
+                      }`}
+                    >
+                      {cat} ({count})
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Modal Items List */}
+            <div className="flex-1 overflow-y-auto p-4 divide-y divide-emerald-50 space-y-1">
+              {filteredSearchItems.length === 0 ? (
+                <div className="text-center py-12 text-stone-400">
+                  <p className="text-sm font-bold text-stone-600">No matching ingredients found</p>
+                  <p className="text-xs mt-1">Try adjusting your search query or selected category filter.</p>
+                </div>
+              ) : (
+                filteredSearchItems.map((item) => (
+                  <div
+                    key={item.id}
+                    className="py-2.5 px-3 rounded-xl hover:bg-emerald-50/70 transition-colors flex items-center justify-between gap-3"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="px-2 py-0.5 bg-emerald-100 text-emerald-900 text-[10px] font-black rounded-md border border-emerald-200 shrink-0">
+                          {item.category || 'General'}
+                        </span>
+                        <span className="font-extrabold text-xs text-stone-900 truncate">
+                          {item.itemDescription}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-3 text-[11px] text-stone-500 mt-1">
+                        <span>
+                          Pack: <strong className="text-stone-700">{item.packWeight} {item.packUnit}</strong> @ {formatCurrency(item.packPrice)}
+                        </span>
+                        <span>•</span>
+                        <span className="font-bold text-emerald-800">
+                          {formatCurrency(item.pricePerUnit)} / {item.baseUnit}
+                        </span>
+                        {item.source && (
+                          <>
+                            <span>•</span>
+                            <span className="text-stone-400 truncate max-w-[120px]">{item.source}</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleAddIngredient(item.id);
+                      }}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-black text-white bg-emerald-700 hover:bg-emerald-800 rounded-xl shadow-2xs transition-all active:scale-95 shrink-0 cursor-pointer"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Add</span>
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-3.5 bg-stone-50 border-t border-stone-200 flex items-center justify-between text-xs text-stone-500">
+              <span>Showing {filteredSearchItems.length} of {orderList.length} items</span>
+              <button
+                type="button"
+                onClick={() => setIsSearchModalOpen(false)}
+                className="px-4 py-2 font-bold text-stone-700 bg-white hover:bg-stone-100 border border-stone-300 rounded-xl transition-colors cursor-pointer"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Floating Action Feedback Toast */}
+      {toastMessage && (
+        <div className="fixed bottom-6 right-6 z-50 bg-emerald-950 text-white border-2 border-emerald-400 px-4 py-3 rounded-2xl shadow-xl flex items-center gap-2.5 text-xs font-extrabold animate-in fade-in slide-in-from-bottom-3 duration-200">
+          <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+          <span>{toastMessage}</span>
+        </div>
+      )}
     </div>
   );
 };

@@ -42,6 +42,15 @@ export default function App() {
     'communityRecipes',
   ]);
 
+  // Target item ID for redirection into Order List database & edit
+  const [targetOrderListItemId, setTargetOrderListItemId] = useState<string | null>(null);
+
+  const handleNavigateToOrderListItem = (orderItemId: string) => {
+    setTargetOrderListItemId(orderItemId);
+    setActiveTab('orderList');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   // Logo State (stored in localStorage if modified, ensuring stale /src/ dev paths are cleared)
   const [logoUrl, setLogoUrl] = useState<string>(() => {
     const saved = localStorage.getItem('food_costing_app_logo');
@@ -485,6 +494,7 @@ export default function App() {
             accompaniments={accompaniments}
             setAccompaniments={setAccompaniments}
             orderList={orderList}
+            onNavigateToOrderList={handleNavigateToOrderListItem}
             onContinueToMeal={() => {
               const updatedMeal = recalculateMeal(currentMeal, accompaniments);
               setCurrentMeal(updatedMeal);
@@ -502,6 +512,7 @@ export default function App() {
             setCurrentMeal={setCurrentMeal}
             accompaniments={accompaniments}
             orderList={orderList}
+            onNavigateToOrderList={handleNavigateToOrderListItem}
             onContinueToQuote={() => {
               const updatedQuote = recalculateQuote(quote, [currentMeal]);
               setQuote(updatedQuote);
@@ -530,6 +541,8 @@ export default function App() {
             onResetOrderList={() => setOrderList(INITIAL_ORDER_LIST)}
             basket={basket}
             setBasket={setBasket}
+            targetItemId={targetOrderListItemId}
+            onClearTargetItemId={() => setTargetOrderListItemId(null)}
             onNavigateToDishBuilder={() => {
               setActiveTab('dishBuilder');
               window.scrollTo({ top: 0, behavior: 'smooth' });

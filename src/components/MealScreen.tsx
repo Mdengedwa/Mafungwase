@@ -39,6 +39,7 @@ interface MealScreenProps {
   accompaniments: Accompaniment[];
   orderList: OrderItem[];
   onContinueToQuote: () => void;
+  onNavigateToOrderList?: (orderItemId: string) => void;
 }
 
 export const MealScreen: React.FC<MealScreenProps> = ({
@@ -47,9 +48,13 @@ export const MealScreen: React.FC<MealScreenProps> = ({
   accompaniments,
   orderList,
   onContinueToQuote,
+  onNavigateToOrderList,
 }) => {
   // Filter Order List items in Packaging / Disposables category
   const packagingOptions = orderList.filter((i) => i.category === 'Packaging');
+
+  // Controlled select state for packaging
+  const [selectedPackagingId, setSelectedPackagingId] = useState<string>('');
 
   // Saved state and Margin Alert state for Recipe Library
   const [isSavedToLibrary, setIsSavedToLibrary] = useState(false);
@@ -202,6 +207,7 @@ export const MealScreen: React.FC<MealScreenProps> = ({
     }
 
     updateMeal({ ...currentMeal, fees: [...currentMeal.fees, newFee] });
+    setSelectedPackagingId('');
   };
 
   // Update fee line
@@ -338,14 +344,14 @@ export const MealScreen: React.FC<MealScreenProps> = ({
 
           <div className="flex items-center gap-2">
             <select
+              value={selectedPackagingId}
               onChange={(e) => {
-                if (e.target.value) {
-                  handleAddPackagingFee(e.target.value);
-                  e.target.value = '';
+                const val = e.target.value;
+                if (val) {
+                  handleAddPackagingFee(val);
                 }
               }}
-              className="px-3 py-1.5 text-xs font-semibold bg-emerald-50/70 hover:bg-emerald-100 border border-emerald-200 text-emerald-950 rounded-xl focus:outline-none cursor-pointer"
-              defaultValue=""
+              className="max-w-[240px] sm:max-w-xs px-3 py-1.5 text-xs font-bold bg-emerald-50/90 hover:bg-emerald-100/90 border border-emerald-300 text-emerald-950 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-600 focus:outline-none cursor-pointer transition-all truncate"
             >
               <option value="" disabled>
                 + Add Packaging from Order List...
@@ -466,13 +472,27 @@ export const MealScreen: React.FC<MealScreenProps> = ({
                     </td>
 
                     <td className="p-3 text-center">
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteFee(fee.id)}
-                        className="p-1 text-stone-400 hover:text-rose-600 rounded"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      <div className="flex items-center justify-center gap-1">
+                        {fee.orderItemId && onNavigateToOrderList && (
+                          <button
+                            type="button"
+                            onClick={() => onNavigateToOrderList(fee.orderItemId!)}
+                            className="p-1 text-emerald-700 hover:text-emerald-950 hover:bg-emerald-100 rounded transition-colors cursor-pointer"
+                            title={`More Information: View & Edit "${fee.description}" in Order List (Manager Mode)`}
+                            aria-label="More information / Edit item in Order List"
+                          >
+                            <Info className="w-4 h-4" />
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteFee(fee.id)}
+                          className="p-1 text-stone-400 hover:text-rose-600 rounded transition-colors cursor-pointer"
+                          title="Delete fee"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
