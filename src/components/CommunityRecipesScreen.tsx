@@ -75,9 +75,15 @@ export const CommunityRecipesScreen: React.FC<CommunityRecipesScreenProps> = ({
 
   const [presets, setPresets] = useState<PresetSuggestion[]>(loadPresets);
 
-  // Sync across tabs & storage
+  // Sync across tabs & storage without triggering loops
   useEffect(() => {
-    const handleSync = () => setPresets(loadPresets());
+    const handleSync = () => {
+      const loaded = loadPresets();
+      setPresets((prev) => {
+        if (JSON.stringify(prev) === JSON.stringify(loaded)) return prev;
+        return loaded;
+      });
+    };
     window.addEventListener('storage', handleSync);
     window.addEventListener('recipes_updated', handleSync);
     return () => {
@@ -90,7 +96,6 @@ export const CommunityRecipesScreen: React.FC<CommunityRecipesScreenProps> = ({
   useEffect(() => {
     try {
       localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(presets));
-      window.dispatchEvent(new Event('recipes_updated'));
     } catch (e) {
       console.error('Failed to save presets:', e);
     }

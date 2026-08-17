@@ -171,14 +171,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) {
-          const cleaned = filterOutIncoherentRecipes(parsed);
-          // Keep localStorage purged of incoherent/test recipes
-          try {
-            localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(cleaned));
-          } catch (e) {
-            console.error('Failed to update cleaned presets', e);
-          }
-          return cleaned;
+          return filterOutIncoherentRecipes(parsed);
         }
       }
     } catch (e) {
@@ -189,10 +182,14 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
   const [presets, setPresets] = useState<PresetSuggestion[]>(loadPresets);
 
-  // Listen for storage and recipe updates across screens
+  // Listen for storage and recipe updates across screens without looping
   useEffect(() => {
     const handleSync = () => {
-      setPresets(loadPresets());
+      const loaded = loadPresets();
+      setPresets((prev) => {
+        if (JSON.stringify(prev) === JSON.stringify(loaded)) return prev;
+        return loaded;
+      });
     };
     window.addEventListener('storage', handleSync);
     window.addEventListener('recipes_updated', handleSync);

@@ -1,20 +1,225 @@
 import * as XLSX from 'xlsx';
-import { OrderItem } from '../types';
+import { OrderItem, PackType, PackUnit, BaseUnit } from '../types';
 import { calculatePricePerUnit } from './calculations';
 import { isDateExpiredOrInvalid } from './dateCleanup';
-import {
-  parseNumber,
-  parseYieldPercent,
-  normalizeCategory,
-  normalizePackType,
-  normalizePackUnit,
-  inferBaseUnit,
-  calculatePackPriceFromUnitPrice,
-} from './csvOrderList';
+
+/**
+ * Standardize known categories
+ */
+export function normalizeCategory(cat: string): string {
+  const c = (cat || '').trim().toLowerCase();
+  if (c.includes('poultr') || c.includes('chicken') || c.includes('turkey') || c.includes('duck')) {
+    return 'Poultry';
+  }
+  if (
+    c.includes('meat') ||
+    c.includes('beef') ||
+    c.includes('pork') ||
+    c.includes('lamb') ||
+    c.includes('mutton') ||
+    c.includes('steak') ||
+    c.includes('mince') ||
+    c.includes('wors')
+  ) {
+    return 'Meat & Beef';
+  }
+  if (
+    c.includes('veg') ||
+    c.includes('produce') ||
+    c.includes('fruit') ||
+    c.includes('onion') ||
+    c.includes('potato') ||
+    c.includes('salad') ||
+    c.includes('spinach') ||
+    c.includes('herb')
+  ) {
+    return 'Vegetables & Produce';
+  }
+  if (
+    c.includes('spice') ||
+    c.includes('condiment') ||
+    c.includes('sauce') ||
+    c.includes('season') ||
+    c.includes('curry') ||
+    c.includes('salt') ||
+    c.includes('pepper') ||
+    c.includes('chakalaka') ||
+    c.includes('stock')
+  ) {
+    return 'Spices & Condiments';
+  }
+  if (
+    c.includes('packag') ||
+    c.includes('container') ||
+    c.includes('foil') ||
+    c.includes('box') ||
+    c.includes('tub') ||
+    c.includes('lid') ||
+    c.includes('cup') ||
+    c.includes('bag') ||
+    c.includes('cutlery') ||
+    c.includes('napkin')
+  ) {
+    return 'Packaging';
+  }
+  if (
+    c.includes('dairy') ||
+    c.includes('pantry') ||
+    c.includes('milk') ||
+    c.includes('cheese') ||
+    c.includes('butter') ||
+    c.includes('cream') ||
+    c.includes('flour') ||
+    c.includes('sugar') ||
+    c.includes('oil') ||
+    c.includes('rice') ||
+    c.includes('maize') ||
+    c.includes('pap')
+  ) {
+    return 'Dairy & Pantry';
+  }
+  return cat.trim() || 'Dairy & Pantry';
+}
+
+/**
+ * Normalize Pack Type
+ */
+export function normalizePackType(type: string): PackType {
+  const t = (type || '').trim().toLowerCase();
+  if (t === 'each' || t === 'ea' || t === 'unit') return 'Each';
+  if (t === 'loose' || t === 'bulk' || t === 'kg' || t === 'per kg') return 'Loose';
+  return 'Pack';
+}
+
+/**
+ * Normalize Pack Unit
+ */
+export function normalizePackUnit(unit: string): PackUnit {
+  const u = (unit || '').trim().toLowerCase();
+  const validUnits: PackUnit[] = [
+    'g', 'kg', 'ml', 'L', 'each', 'bunch', 'punnet', 'tray',
+    'can', 'brick', 'slab', 'sachet', 'loaf', 'bottle', 'box', 'bag'
+  ];
+  if (u === 'gram' || u === 'grams') return 'g';
+  if (u === 'kilo' || u === 'kilos' || u === 'kgs') return 'kg';
+  if (u === 'litre' || u === 'litres' || u === 'liter' || u === 'liters' || u === 'l') return 'L';
+  if (u === 'millilitre' || u === 'millilitres' || u === 'mls') return 'ml';
+  if (u === 'ea' || u === 'unit' || u === 'pcs' || u === 'piece' || u === 'pieces') return 'each';
+  if (validUnits.includes(u as PackUnit)) return u as PackUnit;
+  return 'g';
+}
+
+/**
+ * Infer Base Unit from Pack Unit if not provided
+ */
+export function inferBaseUnit(packUnit: PackUnit, explicitBaseUnit?: string): BaseUnit {
+  if (explicitBaseUnit) {
+    const b = explicitBaseUnit.trim().toLowerCase();
+    if (b === 'kg' || b === 'kilo' || b === 'g') return b === 'g' ? 'g' : 'kg';
+    if (b === 'l' || b === 'litre' || b === 'liter' || b === 'ml') return b === 'ml' ? 'ml' : 'L';
+    if (b === 'each' || b === 'ea' || b === 'unit') return 'each';
+  }
+
+  if (packUnit === 'ml' || packUnit === 'L') {
+    return 'L';
+  }
+  if (['each', 'bunch', 'punnet', 'tray', 'can', 'brick', 'slab', 'sachet', 'loaf', 'bottle', 'box', 'bag'].includes(packUnit)) {
+    return 'each';
+  }
+  return 'kg';
+}
+
+/**
+ * Clean and parse currency/number
+ * Handles South African formats: "R 185.00", "R185,00", "1 250.50", "1,250.00", "45,99", etc.
+ */
+export function parseNumber(val: string | number | undefined, defaultVal = 0): number {
+  if (val === undefined || val === null) return defaultVal;
+  if (typeof val === 'number') return isNaN(val) ? defaultVal : val;
+  const str = val.toString().trim();
+  if (str === '' || str === '-' || str === 'N/A' || str === 'n/a' || str === 'nil') return defaultVal;
+
+  let cleaned = str
+    .replace(/^(ZAR|R|\$|€|£)\s*/i, '')
+    .replace(/\s*(ZAR|R|\$|€|£)$/i, '')
+    .replace(/[^\d.,\-+]/g, '')
+    .trim();
+
+  if (!cleaned) return defaultVal;
+
+  if (cleaned.includes(',') && cleaned.includes('.')) {
+    if (cleaned.lastIndexOf(',') > cleaned.lastIndexOf('.')) {
+      cleaned = cleaned.replace(/\./g, '').replace(',', '.');
+    } else {
+      cleaned = cleaned.replace(/,/g, '');
+    }
+  } else if (cleaned.includes(',')) {
+    const parts = cleaned.split(',');
+    if (parts.length === 2 && parts[1].length <= 2) {
+      cleaned = cleaned.replace(',', '.');
+    } else {
+      cleaned = cleaned.replace(/,/g, '');
+    }
+  }
+
+  const parsed = parseFloat(cleaned);
+  return isNaN(parsed) ? defaultVal : parsed;
+}
+
+/**
+ * Calculate Pack Price from Base Unit Price
+ */
+export function calculatePackPriceFromUnitPrice(
+  unitPrice: number,
+  packWeight: number,
+  packUnit: string,
+  baseUnit?: string
+): number {
+  if (!unitPrice || unitPrice <= 0 || !packWeight || packWeight <= 0) return 0;
+  const pUnit = (packUnit || 'g').toLowerCase();
+  const bUnit = (baseUnit || '').toLowerCase();
+
+  if (pUnit === 'each' || pUnit === 'ea' || bUnit === 'each' || bUnit === 'ea') {
+    return unitPrice * packWeight;
+  }
+  if (pUnit === 'g' || pUnit === 'grams') {
+    if (bUnit === 'g') return unitPrice * packWeight;
+    return unitPrice * (packWeight / 1000);
+  }
+  if (pUnit === 'kg' || pUnit === 'kilograms') {
+    if (bUnit === 'g') return unitPrice * (packWeight * 1000);
+    return unitPrice * packWeight;
+  }
+  if (pUnit === 'ml' || pUnit === 'millilitre') {
+    if (bUnit === 'ml') return unitPrice * packWeight;
+    return unitPrice * (packWeight / 1000);
+  }
+  if (pUnit === 'l' || pUnit === 'litre' || pUnit === 'litres') {
+    if (bUnit === 'ml') return unitPrice * (packWeight * 1000);
+    return unitPrice * packWeight;
+  }
+  return unitPrice * packWeight;
+}
+
+/**
+ * Clean and parse yield percentage (e.g., "85%", "0.85", "85")
+ */
+export function parseYieldPercent(val: string | number | undefined): number {
+  if (val === undefined || val === null) return 1.0;
+  if (typeof val === 'number') {
+    if (val > 1.0) return Math.min(val / 100, 1.0);
+    return Math.max(0.01, Math.min(val, 1.0));
+  }
+  const clean = val.toString().replace('%', '').trim();
+  const num = parseFloat(clean);
+  if (isNaN(num) || num <= 0) return 1.0;
+  if (num > 1.0) return Math.min(num / 100, 1.0);
+  return Math.max(0.01, Math.min(num, 1.0));
+}
 
 export interface ColumnMappingConfig {
-  headerRowIndex: number; // 0-based index of header row
-  descriptionCol: string; // Column header or index
+  headerRowIndex: number;
+  descriptionCol: string;
   packPriceCol: string;
   unitPriceCol: string;
   packWeightCol: string;
@@ -64,7 +269,6 @@ export interface ExcelImportResult {
  */
 function findBestColumnMatch(headers: string[], keywords: string[]): string {
   if (!headers || headers.length === 0) return '';
-  // 1. Exact or cleaned match
   for (const h of headers) {
     const cleanH = h.toLowerCase().replace(/[^a-z0-9]/g, '');
     for (const kw of keywords) {
@@ -72,7 +276,6 @@ function findBestColumnMatch(headers: string[], keywords: string[]): string {
       if (cleanH === cleanKw) return h;
     }
   }
-  // 2. Contains match
   for (const h of headers) {
     const cleanH = h.toLowerCase();
     for (const kw of keywords) {
@@ -113,7 +316,6 @@ export function analyzeGridHeaders(grid: any[][]): {
     };
   }
 
-  // Scan first 6 rows to find the row with the most text-like column headers
   let bestHeaderRowIndex = 0;
   let maxScore = -1;
 
@@ -156,7 +358,6 @@ export function analyzeGridHeaders(grid: any[][]): {
     return `Column ${idx + 1}`;
   });
 
-  // Build mapping
   const descriptionCol = findBestColumnMatch(headers, [
     'item description',
     'description',
@@ -305,7 +506,7 @@ export function analyzeGridHeaders(grid: any[][]): {
 }
 
 /**
- * Read Excel workbook from ArrayBuffer or binary string
+ * Read Excel workbook from ArrayBuffer or binary array
  */
 export function parseExcelWorkbook(data: ArrayBuffer | Uint8Array): ExcelWorkbookInfo {
   const workbook = XLSX.read(data, {
@@ -321,12 +522,11 @@ export function parseExcelWorkbook(data: ArrayBuffer | Uint8Array): ExcelWorkboo
 
   sheetNames.forEach((sheetName) => {
     const ws = workbook.Sheets[sheetName];
-    // Convert worksheet to raw 2D array
     const rawGrid = XLSX.utils.sheet_to_json<any[]>(ws, {
       header: 1,
       defval: '',
       blankrows: false,
-      raw: false, // ensures currency strings / formatted numbers are captured
+      raw: false,
     });
 
     const { headers, mapping } = analyzeGridHeaders(rawGrid);
@@ -347,7 +547,46 @@ export function parseExcelWorkbook(data: ArrayBuffer | Uint8Array): ExcelWorkboo
 }
 
 /**
- * Parse grid data into OrderItems using custom or auto-detected column mapping
+ * Parse raw text pasted from Excel clipboard (tab-separated cells / lines) into grid format
+ */
+export function parsePastedExcelText(text: string): {
+  grid: any[][];
+  workbookInfo: ExcelWorkbookInfo;
+} {
+  const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
+  const grid: any[][] = [];
+
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    // Tab-delimited (standard Excel clipboard copy) or comma-delimited fallback
+    const cells = line.includes('\t') ? line.split('\t') : line.split(',');
+    grid.push(cells.map((c) => c.trim()));
+  }
+
+  const { headers, mapping } = analyzeGridHeaders(grid);
+  const sheetName = 'Pasted Excel Data';
+
+  const sheets: Record<string, ExcelParsedSheet> = {
+    [sheetName]: {
+      sheetName,
+      rawGrid: grid,
+      headers,
+      suggestedMapping: mapping,
+    },
+  };
+
+  return {
+    grid,
+    workbookInfo: {
+      sheetNames: [sheetName],
+      activeSheet: sheetName,
+      sheets,
+    },
+  };
+}
+
+/**
+ * Parse grid data into OrderItems using column mapping
  */
 export function parseGridToOrderItems(
   grid: any[][],
@@ -364,7 +603,6 @@ export function parseGridToOrderItems(
     };
   }
 
-  // Create header lookup map: headerName -> colIndex
   const headerMap: Record<string, number> = {};
   headers.forEach((h, idx) => {
     headerMap[h] = idx;
@@ -381,7 +619,6 @@ export function parseGridToOrderItems(
     if (headerMap[clean] !== undefined) {
       return row[headerMap[clean]];
     }
-    // Fallback: check if colNameOrAlias is a Column index e.g. "Column 3"
     const match = colNameOrAlias.match(/Column\s+(\d+)/i);
     if (match) {
       const idx = parseInt(match[1], 10) - 1;
@@ -397,7 +634,6 @@ export function parseGridToOrderItems(
     const row = grid[r];
     if (!row || row.length === 0) continue;
 
-    // Check if entire row is blank
     const hasAnyContent = row.some((c) => c !== undefined && c !== null && String(c).trim() !== '');
     if (!hasAnyContent) continue;
 
@@ -478,7 +714,7 @@ export function parseGridToOrderItems(
     const location = rawLocation || undefined;
 
     const item: OrderItem = {
-      id: `ord-csv-${Date.now()}-${r}-${Math.random().toString(36).substring(2, 6)}`,
+      id: `ord-xls-${Date.now()}-${r}-${Math.random().toString(36).substring(2, 6)}`,
       category,
       itemDescription: rawDesc,
       packType,
@@ -492,7 +728,6 @@ export function parseGridToOrderItems(
       source,
       endingDate,
       location,
-      isFromCsv: true,
     };
 
     const rawValues: Record<string, any> = {};
@@ -526,7 +761,7 @@ export function parseGridToOrderItems(
 /**
  * Generate Excel (.xlsx) workbook and trigger browser download
  */
-export function exportOrderListToExcel(orderList: OrderItem[], filename: string = 'OrderList_Database.xlsx') {
+export function exportOrderListToExcel(orderList: OrderItem[], filename: string = 'CatchUp_OrderList_Database.xlsx') {
   const headers = [
     'Item Description',
     'Category',
@@ -561,10 +796,9 @@ export function exportOrderListToExcel(orderList: OrderItem[], filename: string 
 
   const ws = XLSX.utils.aoa_to_sheet([headers, ...dataRows]);
 
-  // Set column widths for readability
   ws['!cols'] = [
     { wch: 32 }, // Item Description
-    { wch: 14 }, // Category
+    { wch: 16 }, // Category
     { wch: 12 }, // Pack Type
     { wch: 14 }, // Pack Price
     { wch: 18 }, // Pack Weight
@@ -591,7 +825,7 @@ export function downloadSampleExcelTemplate() {
   const sampleItems: OrderItem[] = [
     {
       id: 'sample-1',
-      category: 'Protein',
+      category: 'Poultry',
       itemDescription: 'Chicken Breast Fillets Fresh (5kg Box)',
       packType: 'Pack',
       packPrice: 385.0,
@@ -603,11 +837,10 @@ export function downloadSampleExcelTemplate() {
       yieldNote: 'Trimmed fat loss 5%',
       source: 'County Fair / Daybreak',
       location: 'Durban Cold Storage',
-      isFromCsv: true,
     },
     {
       id: 'sample-2',
-      category: 'Dairy',
+      category: 'Dairy & Pantry',
       itemDescription: 'Cheddar Cheese Block 2.5kg Mature',
       packType: 'Pack',
       packPrice: 345.0,
@@ -619,11 +852,10 @@ export function downloadSampleExcelTemplate() {
       yieldNote: '100% usable grated',
       source: 'Clover / Lancewood',
       location: 'Main Kitchen Fridge',
-      isFromCsv: true,
     },
     {
       id: 'sample-3',
-      category: 'Produce',
+      category: 'Vegetables & Produce',
       itemDescription: 'Fresh Red Onions 10kg Pocket',
       packType: 'Pack',
       packPrice: 149.99,
@@ -635,11 +867,10 @@ export function downloadSampleExcelTemplate() {
       yieldNote: 'Peeled outer skins & root',
       source: 'Clairwood Wholesale Market',
       location: 'Dry Store Bay 3',
-      isFromCsv: true,
     },
     {
       id: 'sample-4',
-      category: 'Dry Goods',
+      category: 'Dairy & Pantry',
       itemDescription: 'Long Grain Parboiled White Rice 10kg',
       packType: 'Pack',
       packPrice: 199.5,
@@ -651,11 +882,10 @@ export function downloadSampleExcelTemplate() {
       yieldNote: 'Cooked expansion 2.4x yield',
       source: 'Tastic / Tiger Brands',
       location: 'Dry Store Bin 1',
-      isFromCsv: true,
     },
     {
       id: 'sample-5',
-      category: 'Oils & Fats',
+      category: 'Dairy & Pantry',
       itemDescription: 'Pure Sunflower Cooking Oil 20L Drum',
       packType: 'Pack',
       packPrice: 620.0,
@@ -667,7 +897,6 @@ export function downloadSampleExcelTemplate() {
       yieldNote: 'Deep frying filtration loss',
       source: 'Sunfoil Wholesale',
       location: 'Bulk Oil Storage',
-      isFromCsv: true,
     },
     {
       id: 'sample-6',
@@ -683,7 +912,6 @@ export function downloadSampleExcelTemplate() {
       yieldNote: '100% usable packaging unit',
       source: 'Detpak / GreenHome',
       location: 'Packaging Bay',
-      isFromCsv: true,
     },
   ];
 

@@ -16,6 +16,7 @@ import {
   MapPin,
   Sparkles,
   AlertTriangle,
+  Shield,
   ShieldCheck,
   ShieldAlert,
   Mail,
@@ -55,10 +56,10 @@ import {
 import { isDateExpiredOrInvalid, cleanupExpiredAndInvalidDates } from '../utils/dateCleanup';
 import { RetailPackUnitsModal } from './RetailPackUnitsModal';
 import { RetailPackGuideItem } from '../data/retailPackUnits';
-import { BulkCsvImportModal } from './BulkCsvImportModal';
+import { BulkExcelImportModal } from './BulkExcelImportModal';
 import { QuickPriceUpdateModal } from './QuickPriceUpdateModal';
 import { RecipeBasketModal } from './RecipeBasketModal';
-import { exportOrderListToCsv, downloadCsvFile } from '../utils/csvOrderList';
+import { ManagerPasswordModal } from './ManagerPasswordModal';
 import { exportOrderListToExcel } from '../utils/excelOrderList';
 
 const EXECUTIVE_EMAIL = 'biyelamduduzi10@gmail.com';
@@ -66,6 +67,7 @@ const PROPOSALS_STORAGE_KEY = 'mafungwase_order_proposals_v1';
 const USER_EMAIL_STORAGE_KEY = 'mafungwase_user_email';
 const USER_NAME_STORAGE_KEY = 'mafungwase_user_name';
 const BASKET_STORAGE_KEY = 'food_costing_recipe_basket';
+const MANAGER_MODE_STORAGE_KEY = 'food_costing_manager_mode';
 
 interface OrderListScreenProps {
   orderList: OrderItem[];
@@ -131,6 +133,43 @@ export const OrderListScreen: React.FC<OrderListScreenProps> = ({
   const isExecutive = userEmail.trim().toLowerCase() === EXECUTIVE_EMAIL.toLowerCase();
   const hasSubmittedEmail = userEmail.trim().length > 0;
 
+  // Manager Mode State (persisted across screens)
+  const [isManagerMode, setIsManagerMode] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem(MANAGER_MODE_STORAGE_KEY);
+      if (saved !== null) return saved === 'true';
+    }
+    return false;
+  });
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+
+  // User is considered a manager if they have unlocked Manager Mode OR verified Executive Email
+  const isEffectiveManager = isManagerMode || isExecutive;
+
+  const toggleManagerMode = () => {
+    if (isManagerMode) {
+      setIsManagerMode(false);
+      try {
+        localStorage.setItem(MANAGER_MODE_STORAGE_KEY, 'false');
+      } catch (e) {
+        console.error('Failed to save manager mode', e);
+      }
+      showNotification('Manager Mode deactivated.');
+    } else {
+      setIsPasswordModalOpen(true);
+    }
+  };
+
+  const handlePasswordSuccess = () => {
+    setIsManagerMode(true);
+    try {
+      localStorage.setItem(MANAGER_MODE_STORAGE_KEY, 'true');
+    } catch (e) {
+      console.error('Failed to save manager mode', e);
+    }
+    showNotification('✓ Manager Mode activated successfully!', 'success');
+  };
+
   // Pending proposals count
   const pendingProposals = proposals.filter((p) => p.status === 'pending');
   const pendingCount = pendingProposals.length;
@@ -138,7 +177,7 @@ export const OrderListScreen: React.FC<OrderListScreenProps> = ({
   // Modals & Item Form State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isRetailModalOpen, setIsRetailModalOpen] = useState(false);
-  const [isBulkCsvModalOpen, setIsBulkCsvModalOpen] = useState(false);
+  const [isBulkExcelModalOpen, setIsBulkExcelModalOpen] = useState(false);
   const [isQuickPriceModalOpen, setIsQuickPriceModalOpen] = useState(false);
   const [isBasketModalOpen, setIsBasketModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<OrderItem | null>(null);
@@ -359,22 +398,13 @@ export const OrderListScreen: React.FC<OrderListScreenProps> = ({
     requireEmailAuth(() => {
       if (isExecutive) {
         onResetOrderList();
-        showNotification('Order List cleared of all non-CSV items. Database is ready for CSV import.');
+        showNotification('Order List cleared. Database is ready for Excel import.');
       } else {
         showNotification(
           'Resetting the database is restricted to the Executive Approver.',
           'warning'
         );
       }
-    });
-  };
-
-  const handlePurgeNonCsvItems = () => {
-    requireEmailAuth(() => {
-      const csvOnly = orderList.filter((item) => item.isFromCsv === true || (item.id && item.id.startsWith('ord-csv-')));
-      const removedCount = orderList.length - csvOnly.length;
-      setOrderList(csvOnly);
-      showNotification(`Removed ${removedCount} non-CSV items from Order List database!`, 'success');
     });
   };
 
@@ -456,17 +486,8 @@ export const OrderListScreen: React.FC<OrderListScreenProps> = ({
 
   const handleOpenBulkImport = () => {
     requireEmailAuth(() => {
-      setIsBulkCsvModalOpen(true);
+      setIsBulkExcelModalOpen(true);
     });
-  };
-
-  const handleExportCsv = () => {
-    const csvData = exportOrderListToCsv(orderList);
-    downloadCsvFile(
-      `catchup_order_list_${new Date().toISOString().slice(0, 10)}.csv`,
-      csvData
-    );
-    showNotification(`Exported ${orderList.length} Order List database items to CSV!`, 'success');
   };
 
   const handleExportExcel = () => {
@@ -492,7 +513,7 @@ export const OrderListScreen: React.FC<OrderListScreenProps> = ({
     });
   };
 
-  const handleImportCsvItems = (
+  const handleImportExcelItems = (
     items: OrderItem[],
     mode: 'append' | 'update_merge' | 'replace'
   ) => {
@@ -795,138 +816,140 @@ export const OrderListScreen: React.FC<OrderListScreenProps> = ({
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-6 space-y-6 animate-in fade-in duration-300">
-      {/* Top Identity & Verification Status Banner */}
-      <div
-        className={`rounded-3xl p-4 sm:p-5 border-2 transition-all shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4 ${
-          isExecutive
-            ? 'bg-gradient-to-r from-emerald-900 via-[#0B3B28] to-emerald-950 text-white border-emerald-700 shadow-md'
-            : hasSubmittedEmail
-            ? 'bg-stone-900 text-stone-100 border-black'
-            : 'bg-amber-50/90 text-stone-900 border-amber-300'
-        }`}
-      >
-        <div className="flex items-center gap-3.5 min-w-0">
-          <div
-            className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 border ${
-              isExecutive
-                ? 'bg-emerald-800/80 border-emerald-400 text-amber-300'
-                : hasSubmittedEmail
-                ? 'bg-stone-800 border-stone-700 text-emerald-400'
-                : 'bg-amber-100 border-amber-300 text-amber-800'
-            }`}
-          >
-            {isExecutive ? (
-              <ShieldCheck className="w-6 h-6" />
-            ) : hasSubmittedEmail ? (
-              <UserCheck className="w-5 h-5" />
-            ) : (
-              <Lock className="w-5 h-5" />
-            )}
-          </div>
-
-          <div className="min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="font-extrabold text-sm sm:text-base">
-                {isExecutive
-                  ? '👑 Executive Approver Verified'
-                  : hasSubmittedEmail
-                  ? 'Verified Contributor'
-                  : 'Editing Restricted (Email Required)'}
-              </span>
-              {isExecutive && (
-                <span className="px-2 py-0.5 text-[10px] font-black uppercase tracking-wider bg-amber-400 text-stone-950 rounded-md">
-                  Live Executive Authority
-                </span>
-              )}
-            </div>
-            <p
-              className={`text-xs mt-0.5 truncate ${
+      {/* Top Identity & Verification Status Banner (Visible in Manager Mode) */}
+      {isEffectiveManager && (
+        <div
+          className={`rounded-3xl p-4 sm:p-5 border-2 transition-all shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4 ${
+            isExecutive
+              ? 'bg-gradient-to-r from-emerald-900 via-[#0B3B28] to-emerald-950 text-white border-emerald-700 shadow-md'
+              : hasSubmittedEmail
+              ? 'bg-stone-900 text-stone-100 border-black'
+              : 'bg-amber-50/90 text-stone-900 border-amber-300'
+          }`}
+        >
+          <div className="flex items-center gap-3.5 min-w-0">
+            <div
+              className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 border ${
                 isExecutive
-                  ? 'text-emerald-200'
+                  ? 'bg-emerald-800/80 border-emerald-400 text-amber-300'
                   : hasSubmittedEmail
-                  ? 'text-stone-300'
-                  : 'text-amber-800 font-medium'
+                  ? 'bg-stone-800 border-stone-700 text-emerald-400'
+                  : 'bg-amber-100 border-amber-300 text-amber-800'
               }`}
             >
-              {isExecutive
-                ? `Logged in as Executive Approver (${userEmail}). You can verify & execute submitted changes.`
-                : hasSubmittedEmail
-                ? `Active Session: ${userEmail} ${userName ? `(${userName})` : ''} • Changes require Executive verification by ${EXECUTIVE_EMAIL} before execution.`
-                : 'Only users who have submitted their email can propose edits to the Order List. Changes are executed after executive verification.'}
-            </p>
-          </div>
-        </div>
+              {isExecutive ? (
+                <ShieldCheck className="w-6 h-6" />
+              ) : hasSubmittedEmail ? (
+                <UserCheck className="w-5 h-5" />
+              ) : (
+                <Lock className="w-5 h-5" />
+              )}
+            </div>
 
-        <div className="flex items-center gap-2 flex-wrap self-end md:self-center shrink-0">
-          {hasSubmittedEmail ? (
-            <>
-              {/* Executive Approvals Queue Button */}
-              <button
-                type="button"
-                onClick={() => setIsExecCenterOpen(true)}
-                className={`inline-flex items-center gap-2 px-4 py-2 text-xs font-black rounded-xl border transition-all cursor-pointer ${
-                  pendingCount > 0
-                    ? 'bg-amber-400 hover:bg-amber-300 text-stone-950 border-amber-500 shadow-md animate-pulse'
-                    : isExecutive
-                    ? 'bg-emerald-800/80 hover:bg-emerald-700 text-white border-emerald-500'
-                    : 'bg-stone-800 hover:bg-stone-700 text-stone-200 border-stone-600'
-                }`}
-              >
-                <ShieldCheck className="w-4 h-4" />
-                <span>Executive Verification Center</span>
-                {pendingCount > 0 && (
-                  <span className="px-1.5 py-0.2 text-[11px] font-black bg-rose-600 text-white rounded-full">
-                    {pendingCount}
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-extrabold text-sm sm:text-base">
+                  {isExecutive
+                    ? '👑 Executive Approver Verified'
+                    : hasSubmittedEmail
+                    ? 'Verified Contributor'
+                    : 'Editing Restricted (Email Required)'}
+                </span>
+                {isExecutive && (
+                  <span className="px-2 py-0.5 text-[10px] font-black uppercase tracking-wider bg-amber-400 text-stone-950 rounded-md">
+                    Live Executive Authority
                   </span>
                 )}
-              </button>
+              </div>
+              <p
+                className={`text-xs mt-0.5 truncate ${
+                  isExecutive
+                    ? 'text-emerald-200'
+                    : hasSubmittedEmail
+                    ? 'text-stone-300'
+                    : 'text-amber-800 font-medium'
+                }`}
+              >
+                {isExecutive
+                  ? `Logged in as Executive Approver (${userEmail}). You can verify & execute submitted changes.`
+                  : hasSubmittedEmail
+                  ? `Active Session: ${userEmail} ${userName ? `(${userName})` : ''} • Changes require Executive verification by ${EXECUTIVE_EMAIL} before execution.`
+                  : 'Only users who have submitted their email can propose edits to the Order List. Changes are executed after executive verification.'}
+              </p>
+            </div>
+          </div>
 
-              {!isExecutive && (
+          <div className="flex items-center gap-2 flex-wrap self-end md:self-center shrink-0">
+            {hasSubmittedEmail ? (
+              <>
+                {/* Executive Approvals Queue Button */}
+                <button
+                  type="button"
+                  onClick={() => setIsExecCenterOpen(true)}
+                  className={`inline-flex items-center gap-2 px-4 py-2 text-xs font-black rounded-xl border transition-all cursor-pointer ${
+                    pendingCount > 0
+                      ? 'bg-amber-400 hover:bg-amber-300 text-stone-950 border-amber-500 shadow-md animate-pulse'
+                      : isExecutive
+                      ? 'bg-emerald-800/80 hover:bg-emerald-700 text-white border-emerald-500'
+                      : 'bg-stone-800 hover:bg-stone-700 text-stone-200 border-stone-600'
+                  }`}
+                >
+                  <ShieldCheck className="w-4 h-4" />
+                  <span>Executive Verification Center</span>
+                  {pendingCount > 0 && (
+                    <span className="px-1.5 py-0.2 text-[11px] font-black bg-rose-600 text-white rounded-full">
+                      {pendingCount}
+                    </span>
+                  )}
+                </button>
+
+                {!isExecutive && (
+                  <button
+                    type="button"
+                    onClick={handleSwitchToExecutive}
+                    className="px-3 py-2 text-xs font-bold text-emerald-300 hover:text-emerald-100 bg-emerald-950/60 hover:bg-emerald-900 border border-emerald-700/60 rounded-xl transition-colors cursor-pointer"
+                    title="Switch session to Executive Approver (biyelamduduzi10@gmail.com)"
+                  >
+                    Switch to Executive
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  onClick={handleClearEmail}
+                  className="px-3 py-2 text-xs font-bold text-stone-300 hover:text-white bg-white/10 hover:bg-white/20 rounded-xl transition-colors cursor-pointer"
+                >
+                  Switch Email
+                </button>
+              </>
+            ) : (
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setInputEmail('');
+                    setInputName('');
+                    setEmailFormError(null);
+                    setIsEmailModalOpen(true);
+                  }}
+                  className="inline-flex items-center gap-2 px-4 py-2.5 text-xs font-black text-white bg-amber-800 hover:bg-amber-900 rounded-xl shadow-xs transition-transform active:scale-98 cursor-pointer"
+                >
+                  <Mail className="w-4 h-4" />
+                  <span>Submit Email to Edit</span>
+                </button>
                 <button
                   type="button"
                   onClick={handleSwitchToExecutive}
-                  className="px-3 py-2 text-xs font-bold text-emerald-300 hover:text-emerald-100 bg-emerald-950/60 hover:bg-emerald-900 border border-emerald-700/60 rounded-xl transition-colors cursor-pointer"
-                  title="Switch session to Executive Approver (biyelamduduzi10@gmail.com)"
+                  className="px-3 py-2.5 text-xs font-bold text-stone-700 hover:text-stone-900 bg-white hover:bg-stone-100 border border-stone-300 rounded-xl transition-colors cursor-pointer"
+                  title="Verify as executive: biyelamduduzi10@gmail.com"
                 >
-                  Switch to Executive
+                  Executive Login
                 </button>
-              )}
-
-              <button
-                type="button"
-                onClick={handleClearEmail}
-                className="px-3 py-2 text-xs font-bold text-stone-300 hover:text-white bg-white/10 hover:bg-white/20 rounded-xl transition-colors cursor-pointer"
-              >
-                Switch Email
-              </button>
-            </>
-          ) : (
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setInputEmail('');
-                  setInputName('');
-                  setEmailFormError(null);
-                  setIsEmailModalOpen(true);
-                }}
-                className="inline-flex items-center gap-2 px-4 py-2.5 text-xs font-black text-white bg-amber-800 hover:bg-amber-900 rounded-xl shadow-xs transition-transform active:scale-98 cursor-pointer"
-              >
-                <Mail className="w-4 h-4" />
-                <span>Submit Email to Edit</span>
-              </button>
-              <button
-                type="button"
-                onClick={handleSwitchToExecutive}
-                className="px-3 py-2.5 text-xs font-bold text-stone-700 hover:text-stone-900 bg-white hover:bg-stone-100 border border-stone-300 rounded-xl transition-colors cursor-pointer"
-                title="Verify as executive: biyelamduduzi10@gmail.com"
-              >
-                Executive Login
-              </button>
-            </div>
-          )}
+              </div>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Main Database Container */}
       <div className="bg-white rounded-3xl p-6 sm:p-7 shadow-xs border-2 border-black space-y-6">
@@ -937,7 +960,7 @@ export const OrderListScreen: React.FC<OrderListScreenProps> = ({
               <h2 className="text-xl sm:text-2xl font-extrabold text-stone-900">
                 Order List Database
               </h2>
-              {pendingCount > 0 && (
+              {pendingCount > 0 && isEffectiveManager && (
                 <button
                   type="button"
                   onClick={() => setIsExecCenterOpen(true)}
@@ -977,8 +1000,32 @@ export const OrderListScreen: React.FC<OrderListScreenProps> = ({
               )}
             </button>
 
-            {/* Manager / Executive Mode Only Database Management Tools */}
-            {isExecutive && (
+            {/* App Manager Mode Switch */}
+            <button
+              type="button"
+              onClick={toggleManagerMode}
+              className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-black transition-all cursor-pointer border active:scale-95 ${
+                isEffectiveManager
+                  ? 'bg-amber-400 text-stone-950 border-amber-500 shadow-md ring-2 ring-amber-300/40'
+                  : 'bg-stone-100 hover:bg-stone-200 text-stone-700 border-stone-300 shadow-xs'
+              }`}
+              title="Toggle Manager mode for administrative database controls"
+            >
+              {isEffectiveManager ? (
+                <>
+                  <ShieldCheck className="w-3.5 h-3.5 text-stone-950" />
+                  <span>Manager: ON</span>
+                </>
+              ) : (
+                <>
+                  <Shield className="w-3.5 h-3.5 text-stone-500" />
+                  <span>Manager Mode</span>
+                </>
+              )}
+            </button>
+
+            {/* Manager Mode Only Database Management Tools */}
+            {isEffectiveManager && (
               <>
                 {/* Quick Price Updater Button */}
                 <button
@@ -998,14 +1045,14 @@ export const OrderListScreen: React.FC<OrderListScreenProps> = ({
                   </span>
                 </button>
 
-                {/* Bulk Excel & CSV Import Button */}
+                {/* Bulk Excel Import Button */}
                 <button
                   onClick={handleOpenBulkImport}
                   className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-black text-emerald-950 bg-emerald-400 hover:bg-emerald-300 border border-emerald-600 rounded-xl transition-all shadow-xs cursor-pointer active:scale-95"
-                  title="Bulk import ingredients, packaging, suppliers and costs from an Excel (.xlsx, .xls) or CSV file"
+                  title="Bulk import ingredients, packaging, suppliers and costs from an Excel (.xlsx, .xls) spreadsheet"
                 >
                   <FileSpreadsheet className="w-4 h-4 text-emerald-950 stroke-[2.5]" />
-                  <span>Import Excel / CSV</span>
+                  <span>Import Excel (.xlsx)</span>
                 </button>
 
                 {/* Export Excel (.xlsx) Button */}
@@ -1016,16 +1063,6 @@ export const OrderListScreen: React.FC<OrderListScreenProps> = ({
                 >
                   <Download className="w-3.5 h-3.5 text-emerald-800" />
                   <span>Export Excel</span>
-                </button>
-
-                {/* Export CSV Button */}
-                <button
-                  onClick={handleExportCsv}
-                  className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-stone-700 bg-stone-100 hover:bg-stone-200 border border-stone-300 rounded-xl transition-colors cursor-pointer"
-                  title="Export all database items to CSV"
-                >
-                  <Download className="w-3.5 h-3.5" />
-                  <span>Export CSV</span>
                 </button>
 
                 {/* Remove No-Price Items Button */}
@@ -1048,17 +1085,6 @@ export const OrderListScreen: React.FC<OrderListScreenProps> = ({
                   <PackageCheck className="w-4 h-4 text-amber-900" />
                   <span>🇿🇦 SA Retail Units Guide</span>
                 </button>
-
-                {orderList.some((item) => !item.isFromCsv && !item.id.startsWith('ord-csv-')) && (
-                  <button
-                    onClick={handlePurgeNonCsvItems}
-                    className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-rose-800 bg-rose-100 hover:bg-rose-200 border border-rose-300 rounded-xl transition-colors cursor-pointer"
-                    title="Remove any items that did not originate from a CSV import"
-                  >
-                    <Trash2 className="w-3.5 h-3.5 text-rose-700" />
-                    <span>Purge Non-CSV Items ({orderList.filter((item) => !item.isFromCsv && !item.id.startsWith('ord-csv-')).length})</span>
-                  </button>
-                )}
 
                 <button
                   onClick={handleCleanExpiredDates}
@@ -1114,8 +1140,8 @@ export const OrderListScreen: React.FC<OrderListScreenProps> = ({
           </div>
         )}
 
-        {/* Missing Prices Warning Banner */}
-        {zeroPriceItemsCount > 0 && (
+        {/* Missing Prices Warning Banner (Visible in Manager Mode) */}
+        {zeroPriceItemsCount > 0 && isEffectiveManager && (
           <div className="bg-amber-50 border-2 border-amber-400 p-4 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs shadow-xs animate-in fade-in">
             <div className="flex items-start sm:items-center gap-2.5">
               <div className="p-2 bg-amber-200 text-amber-950 rounded-xl shrink-0">
@@ -1217,7 +1243,7 @@ export const OrderListScreen: React.FC<OrderListScreenProps> = ({
                 <th className="p-3">Ending Date</th>
                 <th className="p-3">Location</th>
                 <th className="p-3">Source / Supplier</th>
-                <th className="p-3 w-32 text-center">{isExecutive ? 'Actions' : 'Recipe Basket'}</th>
+                <th className="p-3 w-32 text-center">{isEffectiveManager ? 'Actions' : 'Recipe Basket'}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-stone-100 bg-white">
@@ -1232,26 +1258,28 @@ export const OrderListScreen: React.FC<OrderListScreenProps> = ({
                         Order List Database Is Empty
                       </h4>
                       <p className="text-xs text-stone-500 leading-relaxed">
-                        All non-CSV placeholder items have been removed. You can now bulk import all your ingredients, packaging, suppliers, and prices from a CSV file.
+                        The Order List database is ready for your ingredients, pack sizes, supplier prices, and yields from your Excel spreadsheets.
                       </p>
-                      <div className="pt-2 flex items-center justify-center gap-2">
-                        <button
-                          type="button"
-                          onClick={handleOpenBulkImport}
-                          className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-black text-emerald-950 bg-emerald-400 hover:bg-emerald-300 border border-emerald-600 rounded-xl transition-all shadow-xs cursor-pointer"
-                        >
-                          <FileSpreadsheet className="w-4 h-4" />
-                          <span>Bulk Import from CSV</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={handleOpenAdd}
-                          className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-stone-700 bg-white hover:bg-stone-100 border border-stone-300 rounded-xl cursor-pointer"
-                        >
-                          <Plus className="w-3.5 h-3.5" />
-                          <span>Add Single Item</span>
-                        </button>
-                      </div>
+                      {isEffectiveManager && (
+                        <div className="pt-2 flex items-center justify-center gap-2">
+                          <button
+                            type="button"
+                            onClick={handleOpenBulkImport}
+                            className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-black text-emerald-950 bg-emerald-400 hover:bg-emerald-300 border border-emerald-600 rounded-xl transition-all shadow-xs cursor-pointer"
+                          >
+                            <FileSpreadsheet className="w-4 h-4" />
+                            <span>Bulk Import from Excel</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleOpenAdd}
+                            className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-stone-700 bg-white hover:bg-stone-100 border border-stone-300 rounded-xl cursor-pointer"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                            <span>Add Single Item</span>
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -1395,8 +1423,8 @@ export const OrderListScreen: React.FC<OrderListScreenProps> = ({
                             />
                           </button>
 
-                          {/* Executive / Manager Only Row Actions */}
-                          {isExecutive && (
+                          {/* Manager Only Row Actions */}
+                          {isEffectiveManager && (
                             <>
                               <button
                                 type="button"
@@ -2131,15 +2159,15 @@ export const OrderListScreen: React.FC<OrderListScreenProps> = ({
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {/* Bulk Excel/CSV Import */}
+                    {/* Bulk Excel Import */}
                     <div className="p-3.5 bg-white border border-stone-200 rounded-xl flex items-start justify-between gap-3 shadow-2xs">
                       <div>
                         <div className="font-bold text-stone-900 text-xs flex items-center gap-1.5">
                           <FileSpreadsheet className="w-4 h-4 text-emerald-700" />
-                          Import Excel / CSV
+                          Import Excel (.xlsx, .xls)
                         </div>
                         <p className="text-[11px] text-stone-500 mt-1">
-                          Bulk import items, pack sizes, yields, and prices from spreadsheets.
+                          Bulk import items, pack sizes, yields, and prices from Excel spreadsheets.
                         </p>
                       </div>
                       <button
@@ -2243,26 +2271,6 @@ export const OrderListScreen: React.FC<OrderListScreenProps> = ({
                       </button>
                     </div>
 
-                    {/* Export CSV */}
-                    <div className="p-3.5 bg-white border border-stone-200 rounded-xl flex items-start justify-between gap-3 shadow-2xs">
-                      <div>
-                        <div className="font-bold text-stone-900 text-xs flex items-center gap-1.5">
-                          <Download className="w-4 h-4 text-stone-700" />
-                          Export CSV
-                        </div>
-                        <p className="text-[11px] text-stone-500 mt-1">
-                          Download standard raw CSV format for backups or external tools.
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={handleExportCsv}
-                        className="px-3 py-1.5 text-xs font-bold text-stone-700 bg-stone-100 hover:bg-stone-200 border border-stone-300 rounded-xl cursor-pointer shrink-0"
-                      >
-                        Export .csv
-                      </button>
-                    </div>
-
                     {/* Clean Expired Promo Dates */}
                     <div className="p-3.5 bg-white border border-stone-200 rounded-xl flex items-start justify-between gap-3 shadow-2xs">
                       <div>
@@ -2299,28 +2307,6 @@ export const OrderListScreen: React.FC<OrderListScreenProps> = ({
                           type="button"
                           onClick={handleRemoveZeroPriceItems}
                           className="px-3 py-1.5 text-xs font-black text-rose-950 bg-rose-100 hover:bg-rose-200 border border-rose-300 rounded-xl cursor-pointer shrink-0"
-                        >
-                          Purge
-                        </button>
-                      </div>
-                    )}
-
-                    {/* Purge Non-CSV Items */}
-                    {orderList.some((item) => !item.isFromCsv && !item.id.startsWith('ord-csv-')) && (
-                      <div className="p-3.5 bg-white border border-rose-200 rounded-xl flex items-start justify-between gap-3 shadow-2xs">
-                        <div>
-                          <div className="font-bold text-rose-900 text-xs flex items-center gap-1.5">
-                            <Trash2 className="w-4 h-4 text-rose-700" />
-                            Purge Non-CSV Items
-                          </div>
-                          <p className="text-[11px] text-stone-500 mt-1">
-                            Remove starter placeholder items that were not imported from CSV.
-                          </p>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={handlePurgeNonCsvItems}
-                          className="px-3 py-1.5 text-xs font-bold text-rose-800 bg-rose-100 hover:bg-rose-200 border border-rose-300 rounded-xl cursor-pointer shrink-0"
                         >
                           Purge
                         </button>
@@ -2375,14 +2361,14 @@ export const OrderListScreen: React.FC<OrderListScreenProps> = ({
         onSelectUnit={handleSelectRetailUnitInOrderList}
       />
 
-      {/* Bulk CSV Import Modal */}
-      <BulkCsvImportModal
-        isOpen={isBulkCsvModalOpen}
-        onClose={() => setIsBulkCsvModalOpen(false)}
+      {/* Bulk Excel Import Modal */}
+      <BulkExcelImportModal
+        isOpen={isBulkExcelModalOpen}
+        onClose={() => setIsBulkExcelModalOpen(false)}
         currentOrderList={orderList}
         isExecutive={isExecutive}
         userEmail={userEmail || 'Active User'}
-        onImportItems={handleImportCsvItems}
+        onImportItems={handleImportExcelItems}
       />
 
       {/* Quick Price Update Modal */}
@@ -2430,6 +2416,13 @@ export const OrderListScreen: React.FC<OrderListScreenProps> = ({
         onRemoveItem={handleRemoveBasketItem}
         onClearBasket={handleClearBasket}
         onNavigateToDishBuilder={onNavigateToDishBuilder}
+      />
+
+      {/* Manager Mode Password Authentication Modal */}
+      <ManagerPasswordModal
+        isOpen={isPasswordModalOpen}
+        onClose={() => setIsPasswordModalOpen(false)}
+        onSuccess={handlePasswordSuccess}
       />
     </div>
   );

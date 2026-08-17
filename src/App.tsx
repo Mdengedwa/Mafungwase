@@ -58,11 +58,9 @@ export default function App() {
       try {
         const parsed: OrderItem[] = JSON.parse(saved);
         if (Array.isArray(parsed)) {
-          // Keep only items that have a price listed (> 0) and came from bulk file import or custom entry
+          // Keep only items that have a valid price listed (> 0)
           return parsed.filter(
-            (item) =>
-              (item.isFromCsv === true || (item.id && item.id.startsWith('ord-csv-'))) &&
-              (Number(item.packPrice) > 0 || Number(item.pricePerUnit) > 0)
+            (item) => Number(item.packPrice) > 0 || Number(item.pricePerUnit) > 0
           );
         }
       } catch (e) {
@@ -189,11 +187,8 @@ export default function App() {
 
   // Automatically remove invalid & expired promotion end dates, deduplicate, and enforce priced items on mount
   useEffect(() => {
-    // Purge any legacy non-CSV items or items with no price listed
     const validItems = orderList.filter(
-      (item) =>
-        (item.isFromCsv === true || (item.id && item.id.startsWith('ord-csv-'))) &&
-        (Number(item.packPrice) > 0 || Number(item.pricePerUnit) > 0)
+      (item) => Number(item.packPrice) > 0 || Number(item.pricePerUnit) > 0
     );
 
     const {
@@ -211,7 +206,9 @@ export default function App() {
     if (finalOrderList.length !== orderList.length || removedOrderDatesCount > 0) {
       setOrderList(finalOrderList);
     }
-    setSpecials(deduplicated);
+    if (JSON.stringify(deduplicated) !== JSON.stringify(specials)) {
+      setSpecials(deduplicated);
+    }
   }, []);
 
   // Synchronize Logo with LocalStorage
