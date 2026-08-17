@@ -39,6 +39,8 @@ import { RetailPackUnitsModal } from './RetailPackUnitsModal';
 import { RetailPackGuideItem } from '../data/retailPackUnits';
 import platedMealPieChartImg from '../assets/images/plated_meal_pie_chart_1786617201280.jpg';
 
+const MANAGER_MODE_STORAGE_KEY = 'food_costing_manager_mode';
+
 interface AccompanimentScreenProps {
   accompaniments: Accompaniment[];
   setAccompaniments: React.Dispatch<React.SetStateAction<Accompaniment[]>>;
@@ -56,6 +58,15 @@ export const AccompanimentScreen: React.FC<AccompanimentScreenProps> = ({
   const [viewMode, setViewMode] = useState<'simple' | 'detailed'>('simple');
   const [isSpoonModalOpen, setIsSpoonModalOpen] = useState<boolean>(false);
   const [isRetailModalOpen, setIsRetailModalOpen] = useState<boolean>(false);
+
+  // App Manager Mode State (persisted)
+  const [isManagerMode] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem(MANAGER_MODE_STORAGE_KEY);
+      if (saved !== null) return saved === 'true';
+    }
+    return false;
+  });
 
   // Plated Meal Pie Chart Section States
   const [activeVisualTab, setActiveVisualTab] = useState<'pie' | 'photo' | 'prompt'>('pie');
@@ -643,15 +654,17 @@ export const AccompanimentScreen: React.FC<AccompanimentScreenProps> = ({
 
             {/* Add Ingredient Button & Quick Units */}
             <div className="flex items-center flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() => setIsRetailModalOpen(true)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-black text-amber-950 bg-amber-300 hover:bg-amber-400 border border-amber-500 rounded-xl transition-all shadow-2xs cursor-pointer active:scale-95"
-                title="Open South African Retail Pack & Count Units Reference Guide"
-              >
-                <PackageCheck className="w-3.5 h-3.5 text-amber-900" />
-                <span>🇿🇦 SA Retail Units</span>
-              </button>
+              {isManagerMode && (
+                <button
+                  type="button"
+                  onClick={() => setIsRetailModalOpen(true)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-black text-amber-950 bg-amber-300 hover:bg-amber-400 border border-amber-500 rounded-xl transition-all shadow-2xs cursor-pointer active:scale-95"
+                  title="Open South African Retail Pack & Count Units Reference Guide"
+                >
+                  <PackageCheck className="w-3.5 h-3.5 text-amber-900" />
+                  <span>🇿🇦 SA Retail Units</span>
+                </button>
+              )}
 
               <select
                 onChange={(e) => {
@@ -712,7 +725,9 @@ export const AccompanimentScreen: React.FC<AccompanimentScreenProps> = ({
                       colSpan={viewMode === 'detailed' ? 7 : 5}
                       className="p-8 text-center text-stone-400 bg-emerald-50/20"
                     >
-                      No ingredients added yet. Select an ingredient from the dropdown above, choose from 🇿🇦 SA Retail Units, or add custom items.
+                      {isManagerMode
+                        ? 'No ingredients added yet. Select an ingredient from the dropdown above, choose from 🇿🇦 SA Retail Units, or add custom items.'
+                        : 'No ingredients added yet. Select an ingredient from the dropdown above or add custom items.'}
                     </td>
                   </tr>
                 ) : (
