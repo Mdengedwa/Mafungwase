@@ -1345,7 +1345,7 @@ export const AccompanimentScreen: React.FC<AccompanimentScreenProps> = ({
 
             {/* Modal Footer */}
             <div className="p-3.5 bg-stone-50 border-t border-stone-200 flex items-center justify-between text-xs text-stone-500">
-              <span>Showing {filteredSearchItems.length} of {orderList.length} items</span>
+              <span>Showing {filteredSearchItems.length} of {effectiveOrderList.length} items</span>
               <button
                 type="button"
                 onClick={() => setIsSearchModalOpen(false)}

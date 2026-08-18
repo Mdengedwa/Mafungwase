@@ -66,19 +66,38 @@ export default function App() {
     return saved;
   });
 
-  // Order List State (Strictly holds items with a valid listed price)
+  // Order List State (Strictly holds items found in the order list database)
   const [orderList, setOrderList] = useState<OrderItem[]>(() => {
+    const masterDbMap = new Map(INITIAL_ORDER_LIST.map((i) => [i.id, i]));
     const saved = localStorage.getItem('food_costing_order_list');
     if (saved) {
       try {
         const parsed: OrderItem[] = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          // Keep only items that have a valid price listed (> 0)
-          const valid = parsed.filter(
-            (item) => Number(item.packPrice) > 0 || Number(item.pricePerUnit) > 0
+          // Filter strictly: keep ONLY items that exist in the master order list database or are explicit user-created items
+          const validDbItems: OrderItem[] = [];
+          
+          parsed.forEach((item) => {
+            if (masterDbMap.has(item.id)) {
+              if (Number(item.packPrice) > 0 || Number(item.pricePerUnit) > 0) {
+                validDbItems.push(item);
+              }
+            } else if (item.id && (item.id.startsWith('custom-') || item.id.startsWith('usr-'))) {
+              if (Number(item.packPrice) > 0 || Number(item.pricePerUnit) > 0) {
+                validDbItems.push(item);
+              }
+            }
+          });
+
+          // Ensure all master catalog items exist in the order list
+          const existingIds = new Set(validDbItems.map((i) => i.id));
+          const missingMaster = INITIAL_ORDER_LIST.filter(
+            (item) => !existingIds.has(item.id) && (Number(item.packPrice) > 0 || Number(item.pricePerUnit) > 0)
           );
-          if (valid.length > 0) {
-            return valid;
+          
+          const result = [...validDbItems, ...missingMaster];
+          if (result.length > 0) {
+            return result;
           }
         }
       } catch (e) {
@@ -203,10 +222,13 @@ export default function App() {
     localStorage.setItem('food_costing_store_specials', JSON.stringify(specials));
   }, [specials]);
 
-  // Automatically remove invalid & expired promotion end dates, deduplicate, and enforce priced items on mount
+  // Automatically remove non-database items, invalid & expired promotion end dates, deduplicate, and enforce priced items on mount
   useEffect(() => {
+    const masterDbMap = new Map(INITIAL_ORDER_LIST.map((i) => [i.id, i]));
     let validItems = orderList.filter(
-      (item) => Number(item.packPrice) > 0 || Number(item.pricePerUnit) > 0
+      (item) =>
+        (masterDbMap.has(item.id) || (item.id && (item.id.startsWith('custom-') || item.id.startsWith('usr-')))) &&
+        (Number(item.packPrice) > 0 || Number(item.pricePerUnit) > 0)
     );
     if (validItems.length === 0) {
       validItems = INITIAL_ORDER_LIST;
@@ -219,7 +241,9 @@ export default function App() {
     } = cleanupExpiredAndInvalidDates(validItems, specials);
 
     let finalOrderList = cleanedOrderList.filter(
-      (item) => Number(item.packPrice) > 0 || Number(item.pricePerUnit) > 0
+      (item) =>
+        (masterDbMap.has(item.id) || (item.id && (item.id.startsWith('custom-') || item.id.startsWith('usr-')))) &&
+        (Number(item.packPrice) > 0 || Number(item.pricePerUnit) > 0)
     );
     if (finalOrderList.length === 0) {
       finalOrderList = INITIAL_ORDER_LIST;
@@ -229,6 +253,7 @@ export default function App() {
 
     if (finalOrderList.length !== orderList.length || removedOrderDatesCount > 0) {
       setOrderList(finalOrderList);
+      localStorage.setItem('food_costing_order_list', JSON.stringify(finalOrderList));
     }
     if (JSON.stringify(deduplicated) !== JSON.stringify(specials)) {
       setSpecials(deduplicated);
