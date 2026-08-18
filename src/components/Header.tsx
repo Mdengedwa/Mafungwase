@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import defaultLogoImg from '../assets/images/food_costing_logo_1786443360654.jpg';
+import defaultLogoImg from '../assets/images/mafungwaswe_logo_1787055278742.jpg';
 import {
   Utensils,
   Calculator,
@@ -95,17 +95,17 @@ export const Header: React.FC<HeaderProps> = ({
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo & Brand */}
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-3">
             {isDev ? (
               <button
                 onClick={onOpenLogoModal}
                 title="[Developer Mode] Click to customize brand logo"
-                className="relative group flex items-center justify-center p-1 bg-[#06261A] rounded-2xl border border-amber-500/80 hover:border-amber-300 transition-all cursor-pointer overflow-hidden shadow-xs ring-2 ring-amber-500/30"
+                className="relative group flex items-center justify-center p-0.5 bg-[#06261A] rounded-2xl border border-amber-500/80 hover:border-amber-300 transition-all cursor-pointer overflow-hidden shadow-xs ring-2 ring-amber-500/30"
               >
                 <img
                   src={logoUrl || defaultLogoImg}
-                  alt="CATCHUP Logo"
-                  className="h-9 w-9 object-contain rounded-xl"
+                  alt="MAFUNGWASWE Logo"
+                  className="h-10 w-10 object-cover rounded-xl"
                   onError={(e) => {
                     const target = e.currentTarget as HTMLImageElement;
                     if (target.src !== defaultLogoImg) {
@@ -118,11 +118,11 @@ export const Header: React.FC<HeaderProps> = ({
                 </div>
               </button>
             ) : (
-              <div className="flex items-center justify-center p-1 bg-[#06261A] rounded-2xl border border-emerald-800/80 overflow-hidden shadow-xs">
+              <div className="flex items-center justify-center p-0.5 bg-[#06261A] rounded-2xl border border-emerald-800/80 overflow-hidden shadow-xs">
                 <img
                   src={logoUrl || defaultLogoImg}
-                  alt="CATCHUP Logo"
-                  className="h-9 w-9 object-contain rounded-xl"
+                  alt="MAFUNGWASWE Logo"
+                  className="h-10 w-10 object-cover rounded-xl"
                   onError={(e) => {
                     const target = e.currentTarget as HTMLImageElement;
                     if (target.src !== defaultLogoImg) {
@@ -132,12 +132,9 @@ export const Header: React.FC<HeaderProps> = ({
                 />
               </div>
             )}
-            <div className="flex flex-col">
-              <span className="font-futura font-black text-xl tracking-[0.18em] uppercase text-white select-none leading-tight font-['Jost','Futura','Futura_PT','Montserrat','Century_Gothic',sans-serif]">
-                CATCHUP
-              </span>
-              <span className="text-[10px] sm:text-[11px] font-medium tracking-wide text-emerald-200/90 leading-none mt-0.5 select-none whitespace-nowrap">
-                Profitable Kitchens
+            <div className="flex items-center">
+              <span className="font-futura font-black text-xl sm:text-2xl tracking-[0.16em] uppercase text-white select-none leading-none font-['Jost','Futura','Futura_PT','Montserrat','Century_Gothic',sans-serif]">
+                MAFUNGWASWE
               </span>
             </div>
           </div>

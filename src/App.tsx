@@ -23,7 +23,7 @@ import {
 } from './utils/calculations';
 import { RecipeBasketModal } from './components/RecipeBasketModal';
 
-import defaultLogoImg from './assets/images/food_costing_logo_1786443360654.jpg';
+import defaultLogoImg from './assets/images/mafungwaswe_logo_1787055278742.jpg';
 
 // Default Logo processed via Vite asset bundler for production/Vercel support
 export const DEFAULT_LOGO = defaultLogoImg;
@@ -53,7 +53,12 @@ export default function App() {
   // Logo State (stored in localStorage if modified, ensuring stale /src/ dev paths are cleared)
   const [logoUrl, setLogoUrl] = useState<string>(() => {
     const saved = localStorage.getItem('food_costing_app_logo');
-    if (!saved || saved.startsWith('/src/') || saved === '/logo.png') {
+    if (
+      !saved ||
+      saved.startsWith('/src/') ||
+      saved === '/logo.png' ||
+      saved.includes('food_costing_logo')
+    ) {
       return DEFAULT_LOGO;
     }
     return saved;
@@ -596,9 +601,8 @@ export default function App() {
               }}
             />
             <span className="font-futura font-black text-sm tracking-[0.14em] text-stone-100 uppercase">
-              CATCHUP
+              MAFUNGWASWE
             </span>
-            <span className="text-stone-300 font-semibold">• FOR PROFITABLE KITCHENS</span>
             <span>— Professional Catering Cost Accounting</span>
           </div>
           <p className="text-[11px] text-stone-500">

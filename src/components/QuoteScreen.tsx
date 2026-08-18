@@ -13,7 +13,7 @@ import {
   Check,
 } from 'lucide-react';
 import { Meal, Quote, QuoteMealItem } from '../types';
-import defaultLogoImg from '../assets/images/food_costing_logo_1786443360654.jpg';
+import defaultLogoImg from '../assets/images/mafungwaswe_logo_1787055278742.jpg';
 import {
   formatCurrency,
   formatPercent,
@@ -434,8 +434,8 @@ Thank you for choosing our catering service!
               <div className="flex items-center gap-3">
                 <img
                   src={logoUrl || defaultLogoImg}
-                  alt="CATCHUP Logo"
-                  className="h-12 w-12 object-contain rounded-lg"
+                  alt="MAFUNGWASWE Logo"
+                  className="h-12 w-12 object-cover rounded-lg"
                   onError={(e) => {
                     const target = e.currentTarget as HTMLImageElement;
                     if (target.src !== defaultLogoImg) {

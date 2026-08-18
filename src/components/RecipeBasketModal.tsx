@@ -99,7 +99,7 @@ export const RecipeBasketModal: React.FC<RecipeBasketModalProps> = ({
 
     text += `--------------------------------------------------\n`;
     text += `💰 GRAND TOTAL: ${formatCurrency(totalBasketCost)} (Calculated on Pack Prices)\n`;
-    text += `Generated via CATCHUP Profitable Kitchens`;
+    text += `Generated via MAFUNGWASWE`;
 
     navigator.clipboard.writeText(text);
     setCopiedText(true);
