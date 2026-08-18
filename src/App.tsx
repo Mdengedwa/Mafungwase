@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { Header, ActiveTab } from './components/Header';
-import { HomeScreen } from './components/HomeScreen';
 import { DishBuilderScreen } from './components/DishBuilderScreen';
 import { AccompanimentScreen } from './components/AccompanimentScreen';
 import { MealScreen } from './components/MealScreen';
@@ -20,6 +19,7 @@ import {
   recalculateMeal,
   recalculateQuote,
   calculateIngredientRow,
+  synchronizeWithOrderList,
 } from './utils/calculations';
 import { RecipeBasketModal } from './components/RecipeBasketModal';
 
@@ -29,17 +29,16 @@ import defaultLogoImg from './assets/images/food_costing_logo_1786443360654.jpg'
 export const DEFAULT_LOGO = defaultLogoImg;
 
 export default function App() {
-  // Landing page is 'home' (Recipe Library & Catering Menus)
-  const [activeTab, setActiveTab] = useState<ActiveTab>('home');
+  // Landing page is 'communityRecipes' (Our Community Recipes)
+  const [activeTab, setActiveTab] = useState<ActiveTab>('communityRecipes');
   const [isLogoModalOpen, setIsLogoModalOpen] = useState(false);
   const [isQuickCalcOpen, setIsQuickCalcOpen] = useState(false);
 
-  // Unlocked navigation tabs - home (Recipe Library), dishBuilder (Step 1), orderList and communityRecipes are accessible
+  // Unlocked navigation tabs - Our Community Recipes, dishBuilder (Step 1), and orderList are always accessible
   const [unlockedTabs, setUnlockedTabs] = useState<ActiveTab[]>([
-    'home',
+    'communityRecipes',
     'dishBuilder',
     'orderList',
-    'communityRecipes',
   ]);
 
   // Target item ID for redirection into Order List database & edit
@@ -219,6 +218,27 @@ export default function App() {
       setSpecials(deduplicated);
     }
   }, []);
+
+  // Propagate and cascade Order List changes (pricing, yield %, pack specs, description) to all dependent items
+  useEffect(() => {
+    if (accompaniments.length > 0) {
+      const { updatedAccompaniments, updatedMeal, updatedQuote, updatedBasket } =
+        synchronizeWithOrderList(orderList, accompaniments, currentMeal, quote, basket);
+
+      if (JSON.stringify(updatedAccompaniments) !== JSON.stringify(accompaniments)) {
+        setAccompaniments(updatedAccompaniments);
+      }
+      if (JSON.stringify(updatedMeal) !== JSON.stringify(currentMeal)) {
+        setCurrentMeal(updatedMeal);
+      }
+      if (JSON.stringify(updatedQuote) !== JSON.stringify(quote)) {
+        setQuote(updatedQuote);
+      }
+      if (updatedBasket && JSON.stringify(updatedBasket) !== JSON.stringify(basket)) {
+        setBasket(updatedBasket);
+      }
+    }
+  }, [orderList]);
 
   // Synchronize Logo with LocalStorage
   useEffect(() => {
@@ -457,14 +477,14 @@ export default function App() {
 
       {/* Main Content Body */}
       <main className="flex-1 pb-16">
-        {/* Landing Page (Page 1): Recipe Library & Catering Menus */}
-        {activeTab === 'home' && (
-          <HomeScreen
+        {/* Landing Page (Page 1): Our Community Recipes */}
+        {activeTab === 'communityRecipes' && (
+          <CommunityRecipesScreen
             dishName={dishName}
             setDishName={setDishName}
             accompanimentNames={accompanimentNames}
             setAccompanimentNames={setAccompanimentNames}
-            onNavigateToDishBuilder={() => {
+            onNavigateToDishSetup={() => {
               setActiveTab('dishBuilder');
               window.scrollTo({ top: 0, behavior: 'smooth' });
             }}
@@ -481,7 +501,7 @@ export default function App() {
             setAccompanimentNames={setAccompanimentNames}
             onContinueToAccompaniments={() => handleBuildAccompaniments(true)}
             onBackToLibrary={() => {
-              setActiveTab('home');
+              setActiveTab('communityRecipes');
               window.scrollTo({ top: 0, behavior: 'smooth' });
             }}
             logoUrl={logoUrl}
@@ -547,21 +567,6 @@ export default function App() {
               setActiveTab('dishBuilder');
               window.scrollTo({ top: 0, behavior: 'smooth' });
             }}
-          />
-        )}
-
-        {/* Community Recipes */}
-        {activeTab === 'communityRecipes' && (
-          <CommunityRecipesScreen
-            dishName={dishName}
-            setDishName={setDishName}
-            accompanimentNames={accompanimentNames}
-            setAccompanimentNames={setAccompanimentNames}
-            onNavigateToDishSetup={() => {
-              setActiveTab('dishBuilder');
-              window.scrollTo({ top: 0, behavior: 'smooth' });
-            }}
-            logoUrl={logoUrl}
           />
         )}
       </main>

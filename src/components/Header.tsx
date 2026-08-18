@@ -16,13 +16,12 @@ import {
 } from 'lucide-react';
 
 export type ActiveTab =
-  | 'home'
+  | 'communityRecipes'
   | 'dishBuilder'
   | 'accompaniments'
   | 'meals'
   | 'quotes'
-  | 'orderList'
-  | 'communityRecipes';
+  | 'orderList';
 
 interface HeaderProps {
   activeTab: ActiveTab;
@@ -75,17 +74,16 @@ export const Header: React.FC<HeaderProps> = ({
   }, [propDevMode]);
 
   const navItems: { id: ActiveTab; label: string; icon: React.ElementType; badge?: number }[] = [
-    { id: 'home', label: 'Recipe Library', icon: BookOpen },
+    { id: 'communityRecipes', label: 'Our Community Recipes', icon: ChefHat, badge: recipesCount },
     { id: 'dishBuilder', label: 'Dish Builder', icon: Utensils },
     { id: 'accompaniments', label: 'Accompaniments', icon: Calculator, badge: accompanimentsCount },
     { id: 'meals', label: 'Meal Assembly', icon: Layers, badge: mealsCount },
     { id: 'quotes', label: 'Quotes', icon: FileSpreadsheet, badge: quotesCount },
     { id: 'orderList', label: 'Order List', icon: Database },
-    { id: 'communityRecipes', label: 'Our Community Recipes', icon: ChefHat, badge: recipesCount },
   ];
 
-  // Recipe Library (landing page), Dish Builder, Order List, and Community Recipes are always accessible
-  const alwaysAccessibleTabs: ActiveTab[] = ['home', 'dishBuilder', 'orderList', 'communityRecipes'];
+  // Our Community Recipes, Dish Builder, and Order List are always accessible
+  const alwaysAccessibleTabs: ActiveTab[] = ['communityRecipes', 'dishBuilder', 'orderList'];
 
   const isTabAccessible = (tabId: ActiveTab) => {
     if (alwaysAccessibleTabs.includes(tabId)) return true;

@@ -144,7 +144,7 @@ export const DishBuilderScreen: React.FC<DishBuilderScreenProps> = ({
           className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl text-xs font-black text-stone-800 bg-white hover:bg-stone-50 border-2 border-black shadow-xs transition-all cursor-pointer"
         >
           <ArrowLeft className="w-4 h-4 stroke-[2.5]" />
-          <span>← Back to Recipe Library</span>
+          <span>← Back to Our Community Recipes</span>
         </button>
 
         <button
@@ -152,8 +152,8 @@ export const DishBuilderScreen: React.FC<DishBuilderScreenProps> = ({
           onClick={onBackToLibrary}
           className="hidden sm:inline-flex items-center gap-1.5 text-xs font-extrabold text-emerald-800 hover:text-emerald-950 transition-colors cursor-pointer"
         >
-          <BookOpen className="w-4 h-4" />
-          <span>Browse or Load Other Recipes</span>
+          <ChefHat className="w-4 h-4" />
+          <span>Browse Our Community Recipes</span>
         </button>
       </div>
 

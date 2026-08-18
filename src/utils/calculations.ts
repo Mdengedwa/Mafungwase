@@ -6,6 +6,7 @@ import {
   Meal,
   Quote,
   SpoonInfo,
+  RecipeBasketItem,
 } from '../types';
 
 /**
@@ -363,5 +364,105 @@ export function recalculateQuote(quote: Quote, meals: Meal[]): Quote {
     markupPercent,
     totalQuotedPrice,
     pricePerHead,
+  };
+}
+
+/**
+ * Synchronize and propagate Order List updates to Accompaniments, Meals, Quotes, and Basket.
+ * Ensures that any change to price, yield %, pack specifications, or description
+ * instantly cascades to all dependent costing calculations and forms.
+ */
+export function synchronizeWithOrderList(
+  orderList: OrderItem[],
+  accompaniments: Accompaniment[],
+  meal: Meal,
+  quote: Quote,
+  basket?: RecipeBasketItem[]
+): {
+  updatedAccompaniments: Accompaniment[];
+  updatedMeal: Meal;
+  updatedQuote: Quote;
+  updatedBasket?: RecipeBasketItem[];
+} {
+  const orderMap = new Map<string, OrderItem>();
+  orderList.forEach((item) => {
+    orderMap.set(item.id, item);
+  });
+
+  // 1. Cascade updates to Accompaniments & Ingredients
+  const updatedAccompaniments = accompaniments.map((acc) => {
+    const updatedIngredients = acc.ingredients.map((ing) => {
+      if (ing.orderItemId && orderMap.has(ing.orderItemId)) {
+        const item = orderMap.get(ing.orderItemId)!;
+        return calculateIngredientRow({
+          ...ing,
+          name: item.itemDescription,
+          costPerUnit: item.pricePerUnit,
+          eyPercent: item.estYieldPercent,
+          baseUnit: item.baseUnit,
+        }, ing.unit);
+      }
+      return ing;
+    });
+
+    return recalculateAccompaniment({
+      ...acc,
+      ingredients: updatedIngredients,
+    });
+  });
+
+  // 2. Cascade updates to Meal & FeeLines (Packaging, Utensils, etc.)
+  const updatedFees = meal.fees.map((fee) => {
+    if (fee.orderItemId && orderMap.has(fee.orderItemId)) {
+      const item = orderMap.get(fee.orderItemId)!;
+      const packSize = item.packWeight || fee.packSize || 1;
+      const packPrice = item.packPrice;
+      const unitCost = packSize > 0 ? packPrice / packSize : item.pricePerUnit;
+      const quantity = fee.quantity !== undefined ? fee.quantity : 1;
+      const totalCost = unitCost * quantity;
+
+      return {
+        ...fee,
+        description: item.itemDescription,
+        packSize,
+        packPrice,
+        unitCost,
+        quantity,
+        totalCost,
+      };
+    }
+    return fee;
+  });
+
+  const updatedMeal = recalculateMeal(
+    {
+      ...meal,
+      fees: updatedFees,
+    },
+    updatedAccompaniments
+  );
+
+  // 3. Cascade updates to Quotes
+  const updatedQuote = recalculateQuote(quote, [updatedMeal]);
+
+  // 4. Cascade updates to Recipe Basket
+  const updatedBasket = basket
+    ? basket.map((bItem) => {
+        if (orderMap.has(bItem.orderItem.id)) {
+          const freshItem = orderMap.get(bItem.orderItem.id)!;
+          return {
+            ...bItem,
+            orderItem: freshItem,
+          };
+        }
+        return bItem;
+      })
+    : undefined;
+
+  return {
+    updatedAccompaniments,
+    updatedMeal,
+    updatedQuote,
+    updatedBasket,
   };
 }

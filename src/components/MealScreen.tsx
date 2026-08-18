@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
   Layers,
   CheckSquare,
@@ -19,6 +19,8 @@ import {
   ShieldCheck,
   X,
   Sparkles,
+  ChevronDown,
+  Search,
 } from 'lucide-react';
 import { Accompaniment, FeeLine, Meal, OrderItem } from '../types';
 import {
@@ -50,11 +52,50 @@ export const MealScreen: React.FC<MealScreenProps> = ({
   onContinueToQuote,
   onNavigateToOrderList,
 }) => {
-  // Filter Order List items in Packaging / Disposables category
-  const packagingOptions = orderList.filter((i) => i.category === 'Packaging');
+  // Filter Order List items for packaging
+  const [isPackagingDropdownOpen, setIsPackagingDropdownOpen] = useState(false);
+  const [packagingSearchQuery, setPackagingSearchQuery] = useState('');
+  const packagingDropdownRef = useRef<HTMLDivElement>(null);
 
-  // Controlled select state for packaging
-  const [selectedPackagingId, setSelectedPackagingId] = useState<string>('');
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        packagingDropdownRef.current &&
+        !packagingDropdownRef.current.contains(event.target as Node)
+      ) {
+        setIsPackagingDropdownOpen(false);
+      }
+    }
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        setIsPackagingDropdownOpen(false);
+      }
+    }
+    if (isPackagingDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('keydown', handleKeyDown);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isPackagingDropdownOpen]);
+
+  const filteredPackagingOptions = useMemo(() => {
+    const q = packagingSearchQuery.toLowerCase().trim();
+    return orderList.filter((i) => {
+      const isPkg =
+        i.category === 'Packaging' ||
+        (i.category || '').toLowerCase().includes('pack') ||
+        (i.category || '').toLowerCase().includes('dispos') ||
+        (i.category || '').toLowerCase().includes('container');
+      const matchesText =
+        !q ||
+        i.itemDescription.toLowerCase().includes(q) ||
+        (i.category && i.category.toLowerCase().includes(q));
+      return (isPkg || q.length > 0) && matchesText;
+    });
+  }, [orderList, packagingSearchQuery]);
 
   // Saved state and Margin Alert state for Recipe Library
   const [isSavedToLibrary, setIsSavedToLibrary] = useState(false);
@@ -207,7 +248,6 @@ export const MealScreen: React.FC<MealScreenProps> = ({
     }
 
     updateMeal({ ...currentMeal, fees: [...currentMeal.fees, newFee] });
-    setSelectedPackagingId('');
   };
 
   // Update fee line
@@ -343,25 +383,110 @@ export const MealScreen: React.FC<MealScreenProps> = ({
           </h3>
 
           <div className="flex items-center gap-2">
-            <select
-              value={selectedPackagingId}
-              onChange={(e) => {
-                const val = e.target.value;
-                if (val) {
-                  handleAddPackagingFee(val);
-                }
-              }}
-              className="max-w-[240px] sm:max-w-xs px-3 py-1.5 text-xs font-bold bg-emerald-50/90 hover:bg-emerald-100/90 border border-emerald-300 text-emerald-950 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-600 focus:outline-none cursor-pointer transition-all truncate"
-            >
-              <option value="" disabled>
-                + Add Packaging from Order List...
-              </option>
-              {packagingOptions.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.itemDescription} ({formatCurrency(item.pricePerUnit)}/each)
-                </option>
-              ))}
-            </select>
+            {/* Responsive Packaging Dropdown Popover */}
+            <div className="relative inline-block" ref={packagingDropdownRef}>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsPackagingDropdownOpen((prev) => !prev);
+                  if (!isPackagingDropdownOpen) {
+                    setPackagingSearchQuery('');
+                  }
+                }}
+                className="inline-flex items-center justify-between gap-2 px-3.5 py-1.5 text-xs font-black bg-emerald-100/80 hover:bg-emerald-100 border-2 border-emerald-500/90 text-emerald-950 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none cursor-pointer transition-all shadow-2xs active:scale-95"
+                aria-expanded={isPackagingDropdownOpen}
+                aria-haspopup="listbox"
+                title="Click to browse and add packaging from the Order List database"
+              >
+                <span className="truncate">+ Add Packaging from Order List...</span>
+                <ChevronDown
+                  className={`w-3.5 h-3.5 text-emerald-800 transition-transform duration-200 shrink-0 ${
+                    isPackagingDropdownOpen ? 'rotate-180' : ''
+                  }`}
+                />
+              </button>
+
+              {isPackagingDropdownOpen && (
+                <div className="absolute right-0 mt-1.5 w-[300px] sm:w-[360px] max-w-[92vw] bg-white border-2 border-emerald-600 rounded-2xl shadow-2xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150">
+                  {/* Search Header */}
+                  <div className="p-2.5 bg-emerald-50/90 border-b border-emerald-200">
+                    <div className="relative">
+                      <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-emerald-700 pointer-events-none" />
+                      <input
+                        type="text"
+                        autoFocus
+                        value={packagingSearchQuery}
+                        onChange={(e) => setPackagingSearchQuery(e.target.value)}
+                        placeholder="Search boxes, foil, containers..."
+                        className="w-full pl-8 pr-7 py-1.5 text-xs font-bold bg-white border border-emerald-300 rounded-xl text-stone-900 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      />
+                      {packagingSearchQuery && (
+                        <button
+                          type="button"
+                          onClick={() => setPackagingSearchQuery('')}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 p-0.5"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* List of Packaging Items */}
+                  <div className="max-h-64 overflow-y-auto divide-y divide-emerald-50">
+                    {filteredPackagingOptions.length === 0 ? (
+                      <div className="p-4 text-center text-xs text-stone-500 font-medium">
+                        No packaging items found matching &quot;{packagingSearchQuery}&quot;
+                      </div>
+                    ) : (
+                      filteredPackagingOptions.map((item) => (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() => {
+                            handleAddPackagingFee(item.id);
+                            setIsPackagingDropdownOpen(false);
+                          }}
+                          className="w-full px-3 py-2 text-left hover:bg-emerald-50/90 flex items-center justify-between gap-2 transition-colors cursor-pointer group"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <div className="text-xs font-bold text-stone-900 group-hover:text-emerald-950 truncate">
+                              {item.itemDescription}
+                            </div>
+                            <div className="text-[10px] text-stone-400 font-medium truncate">
+                              Category: {item.category || 'Packaging'}
+                            </div>
+                          </div>
+                          <div className="shrink-0 text-right">
+                            <span className="inline-block px-2 py-0.5 rounded-md text-[11px] font-extrabold bg-emerald-100 text-emerald-950 border border-emerald-200 group-hover:bg-emerald-200 transition-colors">
+                              {formatCurrency(item.pricePerUnit)} / each
+                            </span>
+                          </div>
+                        </button>
+                      ))
+                    )}
+                  </div>
+
+                  {/* Bottom Footer */}
+                  <div className="p-2 bg-stone-50 border-t border-emerald-100 flex items-center justify-between text-xs">
+                    <span className="text-[11px] font-semibold text-stone-500">
+                      {filteredPackagingOptions.length} items available
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleAddPackagingFee();
+                        setIsPackagingDropdownOpen(false);
+                      }}
+                      className="inline-flex items-center gap-1 text-[11px] font-black text-emerald-800 hover:text-emerald-950 cursor-pointer"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>+ Custom Fee</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
 
             <button
               type="button"
@@ -787,7 +912,7 @@ export const MealScreen: React.FC<MealScreenProps> = ({
 
             <div className="space-y-3 text-xs text-stone-600">
               <p className="font-medium">
-                To protect profitability and caterer standards, the <strong>Recipe Library</strong> only accepts costed recipes that achieve a <strong>40% food cost margin or lower</strong> (≥60% gross profit margin).
+                To protect profitability and caterer standards, <strong>Our Community Recipes</strong> only accepts costed recipes that achieve a <strong>40% food cost margin or lower</strong> (≥60% gross profit margin).
               </p>
 
               <div className="p-3.5 bg-amber-50/80 border border-amber-200 rounded-2xl space-y-2">
