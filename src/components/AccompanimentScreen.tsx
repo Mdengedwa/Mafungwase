@@ -65,39 +65,11 @@ export const AccompanimentScreen: React.FC<AccompanimentScreenProps> = ({
   const [isSpoonModalOpen, setIsSpoonModalOpen] = useState<boolean>(false);
   const [isRetailModalOpen, setIsRetailModalOpen] = useState<boolean>(false);
 
-  // Controlled dropdown and quick ingredient searcher states
-  const [selectedOrderListId, setSelectedOrderListId] = useState<string>('');
-  const [isDropdownOpen, setIsDropdownOpen] = useState<boolean>(false);
-  const [dropdownSearchQuery, setDropdownSearchQuery] = useState<string>('');
-  const [dropdownCategory, setDropdownCategory] = useState<string>('all');
-  const dropdownRef = useRef<HTMLDivElement>(null);
-
+  // Quick ingredient searcher states
   const [isSearchModalOpen, setIsSearchModalOpen] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [searchCategory, setSearchCategory] = useState<string>('all');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
-
-  // Close dropdown on outside click or Escape key
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setIsDropdownOpen(false);
-      }
-    }
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape') {
-        setIsDropdownOpen(false);
-      }
-    }
-    if (isDropdownOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-      document.addEventListener('keydown', handleKeyDown);
-    }
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-      document.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [isDropdownOpen]);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -148,32 +120,6 @@ export const AccompanimentScreen: React.FC<AccompanimentScreenProps> = ({
       return matchesCategory && matchesText;
     });
   }, [effectiveOrderList, searchQuery, searchCategory]);
-
-  // Filtered order items for top dropdown picker
-  const dropdownFilteredItems = useMemo(() => {
-    const q = dropdownSearchQuery.toLowerCase().trim();
-    return effectiveOrderList.filter((item) => {
-      const matchesCategory = dropdownCategory === 'all' || item.category === dropdownCategory;
-      const matchesText =
-        !q ||
-        item.itemDescription.toLowerCase().includes(q) ||
-        (item.category && item.category.toLowerCase().includes(q)) ||
-        (item.source && item.source.toLowerCase().includes(q));
-      return matchesCategory && matchesText;
-    });
-  }, [effectiveOrderList, dropdownSearchQuery, dropdownCategory]);
-
-  // Grouped filtered items for top dropdown picker
-  const dropdownGroupedItems = useMemo<Record<string, OrderItem[]>>(() => {
-    const groups: Record<string, OrderItem[]> = {};
-    dropdownFilteredItems.forEach((item) => {
-      const cat = item.category || 'General';
-      if (!groups[cat]) groups[cat] = [];
-      groups[cat].push(item);
-    });
-    // Sort keys alphabetically
-    return groups;
-  }, [dropdownFilteredItems]);
 
   // App Manager Mode State (persisted)
   const [isManagerMode] = useState<boolean>(() => {
@@ -323,7 +269,6 @@ export const AccompanimentScreen: React.FC<AccompanimentScreenProps> = ({
       ingredients: [...activeAcc.ingredients, newIng],
     };
     updateActiveAcc(updatedAcc);
-    setSelectedOrderListId('');
   };
 
   // Add ingredient selected from South African Retail Pack Units Guide
@@ -782,156 +727,12 @@ export const AccompanimentScreen: React.FC<AccompanimentScreenProps> = ({
                   setSearchCategory('all');
                   setIsSearchModalOpen(true);
                 }}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-extrabold text-emerald-950 bg-white hover:bg-emerald-50 border border-emerald-300 rounded-xl transition-all shadow-2xs cursor-pointer active:scale-95"
-                title="Search and select ingredients with instant filter"
+                className="inline-flex items-center gap-2 px-4 py-2 text-xs font-black text-emerald-950 bg-emerald-100/90 hover:bg-emerald-200 border-2 border-emerald-500 rounded-xl transition-all shadow-2xs cursor-pointer active:scale-95"
+                title="Search and select ingredients directly from the Order List database"
               >
-                <Search className="w-3.5 h-3.5 text-emerald-700" />
+                <Search className="w-4 h-4 text-emerald-800" />
                 <span>Search Ingredients</span>
               </button>
-
-              {/* Responsive Interactive Dropdown Popover */}
-              <div className="relative inline-block" ref={dropdownRef}>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsDropdownOpen((prev) => !prev);
-                    if (!isDropdownOpen) {
-                      setDropdownSearchQuery('');
-                      setDropdownCategory('all');
-                    }
-                  }}
-                  className="inline-flex items-center justify-between gap-2 px-3.5 py-1.5 text-xs font-black bg-emerald-100/80 hover:bg-emerald-100 border-2 border-emerald-500/90 text-emerald-950 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none cursor-pointer transition-all shadow-2xs active:scale-95"
-                  aria-expanded={isDropdownOpen}
-                  aria-haspopup="listbox"
-                  title="Click to browse and add ingredients from the Order List database"
-                >
-                  <span className="truncate">+ Add from Order List...</span>
-                  <ChevronDown
-                    className={`w-3.5 h-3.5 text-emerald-800 transition-transform duration-200 shrink-0 ${
-                      isDropdownOpen ? 'rotate-180' : ''
-                    }`}
-                  />
-                </button>
-
-                {isDropdownOpen && (
-                  <div className="absolute left-0 sm:left-auto sm:right-0 mt-1.5 w-[310px] sm:w-[380px] max-w-[92vw] bg-white border-2 border-emerald-600 rounded-2xl shadow-2xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150">
-                    {/* Header with Search and Category Filter */}
-                    <div className="p-2.5 bg-emerald-50/90 border-b border-emerald-200 space-y-2">
-                      <div className="relative">
-                        <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-emerald-700 pointer-events-none" />
-                        <input
-                          type="text"
-                          autoFocus
-                          value={dropdownSearchQuery}
-                          onChange={(e) => setDropdownSearchQuery(e.target.value)}
-                          placeholder="Search ingredients, meat, spice..."
-                          className="w-full pl-8 pr-7 py-1.5 text-xs font-bold bg-white border border-emerald-300 rounded-xl text-stone-900 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                        />
-                        {dropdownSearchQuery && (
-                          <button
-                            type="button"
-                            onClick={() => setDropdownSearchQuery('')}
-                            className="absolute right-2 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 p-0.5"
-                          >
-                            <X className="w-3 h-3" />
-                          </button>
-                        )}
-                      </div>
-
-                      {/* Category Chips */}
-                      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-                        <button
-                          type="button"
-                          onClick={() => setDropdownCategory('all')}
-                          className={`px-2 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all shrink-0 cursor-pointer ${
-                            dropdownCategory === 'all'
-                              ? 'bg-emerald-800 text-white shadow-xs'
-                              : 'bg-white text-emerald-900 border border-emerald-200 hover:bg-emerald-100'
-                          }`}
-                        >
-                          All ({effectiveOrderList.length})
-                        </button>
-                        {availableCategories.map((cat) => (
-                          <button
-                            key={cat}
-                            type="button"
-                            onClick={() => setDropdownCategory(cat)}
-                            className={`px-2 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all shrink-0 cursor-pointer ${
-                              dropdownCategory === cat
-                                ? 'bg-emerald-800 text-white shadow-xs'
-                                : 'bg-white text-emerald-900 border border-emerald-200 hover:bg-emerald-100'
-                            }`}
-                          >
-                            {cat}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Scrollable Item List */}
-                    <div className="max-h-64 sm:max-h-72 overflow-y-auto divide-y divide-emerald-50">
-                      {Object.keys(dropdownGroupedItems).length === 0 ? (
-                        <div className="p-4 text-center text-xs text-stone-500 font-medium">
-                          No ingredients found matching &quot;{dropdownSearchQuery}&quot;
-                        </div>
-                      ) : (
-                        (Object.entries(dropdownGroupedItems) as [string, OrderItem[]][]).map(([category, items]) => (
-                          <div key={category} className="py-1">
-                            <div className="px-3 py-1 text-[10px] font-black uppercase tracking-wider text-emerald-900 bg-emerald-50/70 sticky top-0 border-y border-emerald-100/50">
-                              📂 {category} ({items.length})
-                            </div>
-                            {items.map((item) => (
-                              <button
-                                key={item.id}
-                                type="button"
-                                onClick={() => {
-                                  handleAddIngredient(item.id);
-                                  setIsDropdownOpen(false);
-                                }}
-                                className="w-full px-3 py-2 text-left hover:bg-emerald-50/90 flex items-center justify-between gap-2 transition-colors cursor-pointer group"
-                              >
-                                <div className="min-w-0 flex-1">
-                                  <div className="text-xs font-bold text-stone-900 group-hover:text-emerald-950 truncate">
-                                    {item.itemDescription}
-                                  </div>
-                                  {item.source && (
-                                    <div className="text-[10px] text-stone-400 font-medium truncate">
-                                      {item.source} {item.location ? `• ${item.location}` : ''}
-                                    </div>
-                                  )}
-                                </div>
-                                <div className="shrink-0 text-right">
-                                  <span className="inline-block px-2 py-0.5 rounded-md text-[11px] font-extrabold bg-emerald-100 text-emerald-950 border border-emerald-200 group-hover:bg-emerald-200 transition-colors">
-                                    {formatCurrency(item.pricePerUnit)} / {item.baseUnit}
-                                  </span>
-                                </div>
-                              </button>
-                            ))}
-                          </div>
-                        ))
-                      )}
-                    </div>
-
-                    {/* Bottom Action Footer */}
-                    <div className="p-2 bg-stone-50 border-t border-emerald-100 flex items-center justify-between text-xs">
-                      <span className="text-[11px] font-semibold text-stone-500">
-                        {dropdownFilteredItems.length} items available
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          handleAddIngredient();
-                          setIsDropdownOpen(false);
-                        }}
-                        className="inline-flex items-center gap-1 text-[11px] font-black text-emerald-800 hover:text-emerald-950 cursor-pointer"
-                      >
-                        <Plus className="w-3.5 h-3.5" />
-                        <span>+ Custom Ingredient</span>
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
 
               {isManagerMode && (
                 <button
@@ -948,9 +749,9 @@ export const AccompanimentScreen: React.FC<AccompanimentScreenProps> = ({
               <button
                 type="button"
                 onClick={() => handleAddIngredient()}
-                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-extrabold text-emerald-950 bg-emerald-100 hover:bg-emerald-200 border border-emerald-300 rounded-xl transition-colors shadow-2xs cursor-pointer active:scale-95"
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-extrabold text-stone-700 bg-stone-100 hover:bg-stone-200 border border-stone-300 rounded-xl transition-colors shadow-2xs cursor-pointer active:scale-95"
               >
-                <Plus className="w-3.5 h-3.5 text-emerald-800" />
+                <Plus className="w-3.5 h-3.5 text-stone-600" />
                 Custom
               </button>
             </div>
@@ -1419,7 +1220,7 @@ export const AccompanimentScreen: React.FC<AccompanimentScreenProps> = ({
                   Add Ingredients to {activeAcc.name}
                 </h3>
                 <p className="text-xs text-emerald-200 mt-0.5">
-                  Browse {orderList.length} master ingredients or search by name / category
+                  Browse {effectiveOrderList.length} master ingredients or search by name / category
                 </p>
               </div>
               <button
@@ -1466,10 +1267,10 @@ export const AccompanimentScreen: React.FC<AccompanimentScreenProps> = ({
                       : 'bg-white text-stone-600 border border-stone-200 hover:bg-emerald-50'
                   }`}
                 >
-                  All Categories ({orderList.length})
+                  All Categories ({effectiveOrderList.length})
                 </button>
                 {availableCategories.map((cat) => {
-                  const count = orderList.filter((i) => (i.category || 'General') === cat).length;
+                  const count = effectiveOrderList.filter((i) => (i.category || 'General') === cat).length;
                   return (
                     <button
                       key={cat}
