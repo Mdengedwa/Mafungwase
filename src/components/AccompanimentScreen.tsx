@@ -40,6 +40,7 @@ import { SpoonDensityModal } from './SpoonDensityModal';
 import { PreparingInstructionsSection } from './PreparingInstructionsSection';
 import { RetailPackUnitsModal } from './RetailPackUnitsModal';
 import { RetailPackGuideItem } from '../data/retailPackUnits';
+import { INITIAL_ORDER_LIST } from '../data/initialOrderList';
 import platedMealPieChartImg from '../assets/images/plated_meal_pie_chart_1786617201280.jpg';
 
 const MANAGER_MODE_STORAGE_KEY = 'food_costing_manager_mode';
@@ -105,10 +106,18 @@ export const AccompanimentScreen: React.FC<AccompanimentScreenProps> = ({
     }, 2800);
   };
 
+  // Guaranteed effective Order List (falls back to INITIAL_ORDER_LIST if orderList is empty)
+  const effectiveOrderList = useMemo<OrderItem[]>(() => {
+    if (orderList && orderList.length > 0) {
+      return orderList;
+    }
+    return INITIAL_ORDER_LIST;
+  }, [orderList]);
+
   // Group and sort Order List items by category for high performance and clean navigation
   const groupedOrderList = useMemo<Record<string, OrderItem[]>>(() => {
     const groups: Record<string, OrderItem[]> = {};
-    orderList.forEach((item) => {
+    effectiveOrderList.forEach((item) => {
       const cat = item.category || 'General';
       if (!groups[cat]) groups[cat] = [];
       groups[cat].push(item);
@@ -118,18 +127,18 @@ export const AccompanimentScreen: React.FC<AccompanimentScreenProps> = ({
       groups[cat].sort((a, b) => a.itemDescription.localeCompare(b.itemDescription));
     });
     return groups;
-  }, [orderList]);
+  }, [effectiveOrderList]);
 
   // Categories list for filter
   const availableCategories = useMemo(() => {
-    const cats = Array.from(new Set(orderList.map((i) => i.category || 'General'))).sort();
+    const cats = Array.from(new Set(effectiveOrderList.map((i) => i.category || 'General'))).sort();
     return cats;
-  }, [orderList]);
+  }, [effectiveOrderList]);
 
   // Filtered order items for search modal
   const filteredSearchItems = useMemo(() => {
     const q = searchQuery.toLowerCase().trim();
-    return orderList.filter((item) => {
+    return effectiveOrderList.filter((item) => {
       const matchesCategory = searchCategory === 'all' || item.category === searchCategory;
       const matchesText =
         !q ||
@@ -138,12 +147,12 @@ export const AccompanimentScreen: React.FC<AccompanimentScreenProps> = ({
         (item.source && item.source.toLowerCase().includes(q));
       return matchesCategory && matchesText;
     });
-  }, [orderList, searchQuery, searchCategory]);
+  }, [effectiveOrderList, searchQuery, searchCategory]);
 
   // Filtered order items for top dropdown picker
   const dropdownFilteredItems = useMemo(() => {
     const q = dropdownSearchQuery.toLowerCase().trim();
-    return orderList.filter((item) => {
+    return effectiveOrderList.filter((item) => {
       const matchesCategory = dropdownCategory === 'all' || item.category === dropdownCategory;
       const matchesText =
         !q ||
@@ -152,7 +161,7 @@ export const AccompanimentScreen: React.FC<AccompanimentScreenProps> = ({
         (item.source && item.source.toLowerCase().includes(q));
       return matchesCategory && matchesText;
     });
-  }, [orderList, dropdownSearchQuery, dropdownCategory]);
+  }, [effectiveOrderList, dropdownSearchQuery, dropdownCategory]);
 
   // Grouped filtered items for top dropdown picker
   const dropdownGroupedItems = useMemo<Record<string, OrderItem[]>>(() => {
@@ -269,7 +278,7 @@ export const AccompanimentScreen: React.FC<AccompanimentScreenProps> = ({
     let newIng: AccompanimentIngredient;
 
     if (orderItemId) {
-      const selectedItem = orderList.find((i) => i.id === orderItemId);
+      const selectedItem = effectiveOrderList.find((i) => i.id === orderItemId);
       if (selectedItem) {
         const isLiquid = selectedItem.baseUnit === 'L' || selectedItem.packUnit === 'ml';
         const isEach = selectedItem.baseUnit === 'each' || selectedItem.packUnit === 'each';
@@ -840,7 +849,7 @@ export const AccompanimentScreen: React.FC<AccompanimentScreenProps> = ({
                               : 'bg-white text-emerald-900 border border-emerald-200 hover:bg-emerald-100'
                           }`}
                         >
-                          All ({orderList.length})
+                          All ({effectiveOrderList.length})
                         </button>
                         {availableCategories.map((cat) => (
                           <button

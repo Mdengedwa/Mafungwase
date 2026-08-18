@@ -32,6 +32,7 @@ import {
   DEFAULT_PRESET_SUGGESTIONS,
   PresetSuggestion,
 } from '../data/defaultPresetSuggestions';
+import { INITIAL_ORDER_LIST } from '../data/initialOrderList';
 
 const LOCAL_STORAGE_KEY = 'mafungwase_dish_presets_v3';
 
@@ -81,9 +82,14 @@ export const MealScreen: React.FC<MealScreenProps> = ({
     };
   }, [isPackagingDropdownOpen]);
 
+  const effectiveOrderList = useMemo<OrderItem[]>(() => {
+    if (orderList && orderList.length > 0) return orderList;
+    return INITIAL_ORDER_LIST;
+  }, [orderList]);
+
   const filteredPackagingOptions = useMemo(() => {
     const q = packagingSearchQuery.toLowerCase().trim();
-    return orderList.filter((i) => {
+    return effectiveOrderList.filter((i) => {
       const isPkg =
         i.category === 'Packaging' ||
         (i.category || '').toLowerCase().includes('pack') ||
@@ -95,7 +101,7 @@ export const MealScreen: React.FC<MealScreenProps> = ({
         (i.category && i.category.toLowerCase().includes(q));
       return (isPkg || q.length > 0) && matchesText;
     });
-  }, [orderList, packagingSearchQuery]);
+  }, [effectiveOrderList, packagingSearchQuery]);
 
   // Saved state and Margin Alert state for Recipe Library
   const [isSavedToLibrary, setIsSavedToLibrary] = useState(false);

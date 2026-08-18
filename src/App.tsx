@@ -65,11 +65,14 @@ export default function App() {
     if (saved) {
       try {
         const parsed: OrderItem[] = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
+        if (Array.isArray(parsed) && parsed.length > 0) {
           // Keep only items that have a valid price listed (> 0)
-          return parsed.filter(
+          const valid = parsed.filter(
             (item) => Number(item.packPrice) > 0 || Number(item.pricePerUnit) > 0
           );
+          if (valid.length > 0) {
+            return valid;
+          }
         }
       } catch (e) {
         console.error('Failed to parse saved order list', e);
@@ -195,9 +198,12 @@ export default function App() {
 
   // Automatically remove invalid & expired promotion end dates, deduplicate, and enforce priced items on mount
   useEffect(() => {
-    const validItems = orderList.filter(
+    let validItems = orderList.filter(
       (item) => Number(item.packPrice) > 0 || Number(item.pricePerUnit) > 0
     );
+    if (validItems.length === 0) {
+      validItems = INITIAL_ORDER_LIST;
+    }
 
     const {
       cleanedOrderList,
@@ -205,9 +211,12 @@ export default function App() {
       removedOrderDatesCount,
     } = cleanupExpiredAndInvalidDates(validItems, specials);
 
-    const finalOrderList = cleanedOrderList.filter(
+    let finalOrderList = cleanedOrderList.filter(
       (item) => Number(item.packPrice) > 0 || Number(item.pricePerUnit) > 0
     );
+    if (finalOrderList.length === 0) {
+      finalOrderList = INITIAL_ORDER_LIST;
+    }
 
     const deduplicated = sanitizeAndDeduplicateSpecials(cleanedSpecials);
 
