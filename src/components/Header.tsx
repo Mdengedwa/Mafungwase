@@ -104,7 +104,7 @@ export const Header: React.FC<HeaderProps> = ({
               >
                 <img
                   src={logoUrl || defaultLogoImg}
-                  alt="MAFUNGWASWE Logo"
+                  alt="MAFUNGWASE Logo"
                   className="h-10 w-10 object-cover rounded-xl"
                   onError={(e) => {
                     const target = e.currentTarget as HTMLImageElement;
@@ -121,7 +121,7 @@ export const Header: React.FC<HeaderProps> = ({
               <div className="flex items-center justify-center p-0.5 bg-[#06261A] rounded-2xl border border-emerald-800/80 overflow-hidden shadow-xs">
                 <img
                   src={logoUrl || defaultLogoImg}
-                  alt="MAFUNGWASWE Logo"
+                  alt="MAFUNGWASE Logo"
                   className="h-10 w-10 object-cover rounded-xl"
                   onError={(e) => {
                     const target = e.currentTarget as HTMLImageElement;
@@ -133,8 +133,8 @@ export const Header: React.FC<HeaderProps> = ({
               </div>
             )}
             <div className="flex items-center">
-              <span className="font-futura font-black text-xl sm:text-2xl tracking-[0.16em] uppercase text-white select-none leading-none font-['Jost','Futura','Futura_PT','Montserrat','Century_Gothic',sans-serif]">
-                MAFUNGWASWE
+              <span className="font-futura font-black text-xl sm:text-2xl tracking-[0.16em] uppercase text-[#F6D04C] select-none leading-none drop-shadow-xs font-['Jost','Futura','Futura_PT','Montserrat','Century_Gothic',sans-serif]">
+                MAFUNGWASE
               </span>
             </div>
           </div>

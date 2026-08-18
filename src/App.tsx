@@ -600,8 +600,8 @@ export default function App() {
                 }
               }}
             />
-            <span className="font-futura font-black text-sm tracking-[0.14em] text-stone-100 uppercase">
-              MAFUNGWASWE
+            <span className="font-futura font-black text-sm tracking-[0.14em] text-[#F6D04C] uppercase">
+              MAFUNGWASE
             </span>
             <span>— Professional Catering Cost Accounting</span>
           </div>

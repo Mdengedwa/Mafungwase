@@ -380,7 +380,7 @@ export const CommunityRecipesScreen: React.FC<CommunityRecipesScreenProps> = ({
             </h1>
 
             <p className="text-xs sm:text-sm text-emerald-100/90 leading-relaxed font-medium">
-              Explore authentic heritage dishes, regional African catering menus, and local home cook specialties. Click any recipe to populate your costing board or submit your own custom recipe.
+              A place where first borns share delicious recipes and profitable food business ideas.
             </p>
           </div>
 

@@ -434,7 +434,7 @@ Thank you for choosing our catering service!
               <div className="flex items-center gap-3">
                 <img
                   src={logoUrl || defaultLogoImg}
-                  alt="MAFUNGWASWE Logo"
+                  alt="MAFUNGWASE Logo"
                   className="h-12 w-12 object-cover rounded-lg"
                   onError={(e) => {
                     const target = e.currentTarget as HTMLImageElement;
