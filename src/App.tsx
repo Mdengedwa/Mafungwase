@@ -23,7 +23,7 @@ import {
 } from './utils/calculations';
 import { RecipeBasketModal } from './components/RecipeBasketModal';
 
-import defaultLogoImg from './assets/images/mafungwaswe_logo_1787055278742.jpg';
+import defaultLogoImg from './assets/images/mafungwase_logo.jpg';
 
 // Default Logo processed via Vite asset bundler for production/Vercel support
 export const DEFAULT_LOGO = defaultLogoImg;
@@ -57,7 +57,9 @@ export default function App() {
       !saved ||
       saved.startsWith('/src/') ||
       saved === '/logo.png' ||
-      saved.includes('food_costing_logo')
+      saved.includes('food_costing_logo') ||
+      saved.includes('mafungwaswe_logo') ||
+      saved.length < 5
     ) {
       return DEFAULT_LOGO;
     }
@@ -589,17 +591,19 @@ export default function App() {
       <footer className="bg-stone-900 text-stone-400 text-xs border-t border-stone-800 py-6 text-center">
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <img
-              src={logoUrl || DEFAULT_LOGO}
-              alt="Logo"
-              className="w-5 h-5 object-contain rounded"
-              onError={(e) => {
-                const target = e.currentTarget as HTMLImageElement;
-                if (target.src !== DEFAULT_LOGO) {
-                  target.src = DEFAULT_LOGO;
-                }
-              }}
-            />
+            <div className="w-6 h-6 shrink-0 rounded-md overflow-hidden bg-[#06261A] p-0.5 border border-stone-700">
+              <img
+                src={logoUrl || DEFAULT_LOGO}
+                alt="MAFUNGWASE Logo"
+                className="w-full h-full object-cover rounded-sm block"
+                onError={(e) => {
+                  const target = e.currentTarget as HTMLImageElement;
+                  if (target.src !== DEFAULT_LOGO) {
+                    target.src = DEFAULT_LOGO;
+                  }
+                }}
+              />
+            </div>
             <span className="font-futura font-black text-sm tracking-[0.14em] text-[#F6D04C] uppercase">
               MAFUNGWASE
             </span>

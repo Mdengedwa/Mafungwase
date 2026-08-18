@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Image, Upload, RotateCcw, X, Check } from 'lucide-react';
-import defaultLogoImg from '../assets/images/mafungwaswe_logo_1787055278742.jpg';
+import defaultLogoImg from '../assets/images/mafungwase_logo.jpg';
 
 interface LogoUploadModalProps {
   isOpen: boolean;

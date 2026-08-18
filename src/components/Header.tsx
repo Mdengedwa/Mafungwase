@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import defaultLogoImg from '../assets/images/mafungwaswe_logo_1787055278742.jpg';
+import defaultLogoImg from '../assets/images/mafungwase_logo.jpg';
 import {
   Utensils,
   Calculator,
@@ -95,17 +95,17 @@ export const Header: React.FC<HeaderProps> = ({
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo & Brand */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 shrink-0">
             {isDev ? (
               <button
                 onClick={onOpenLogoModal}
                 title="[Developer Mode] Click to customize brand logo"
-                className="relative group flex items-center justify-center p-0.5 bg-[#06261A] rounded-2xl border border-amber-500/80 hover:border-amber-300 transition-all cursor-pointer overflow-hidden shadow-xs ring-2 ring-amber-500/30"
+                className="relative group flex items-center justify-center w-11 h-11 shrink-0 p-0.5 bg-[#06261A] rounded-2xl border border-amber-500/80 hover:border-amber-300 transition-all cursor-pointer overflow-hidden shadow-xs ring-2 ring-amber-500/30"
               >
                 <img
                   src={logoUrl || defaultLogoImg}
                   alt="MAFUNGWASE Logo"
-                  className="h-10 w-10 object-cover rounded-xl"
+                  className="w-full h-full object-cover rounded-xl shrink-0 block"
                   onError={(e) => {
                     const target = e.currentTarget as HTMLImageElement;
                     if (target.src !== defaultLogoImg) {
@@ -118,11 +118,11 @@ export const Header: React.FC<HeaderProps> = ({
                 </div>
               </button>
             ) : (
-              <div className="flex items-center justify-center p-0.5 bg-[#06261A] rounded-2xl border border-emerald-800/80 overflow-hidden shadow-xs">
+              <div className="flex items-center justify-center w-11 h-11 shrink-0 p-0.5 bg-[#06261A] rounded-2xl border border-emerald-800/80 overflow-hidden shadow-xs">
                 <img
                   src={logoUrl || defaultLogoImg}
                   alt="MAFUNGWASE Logo"
-                  className="h-10 w-10 object-cover rounded-xl"
+                  className="w-full h-full object-cover rounded-xl shrink-0 block"
                   onError={(e) => {
                     const target = e.currentTarget as HTMLImageElement;
                     if (target.src !== defaultLogoImg) {

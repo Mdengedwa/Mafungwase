@@ -13,7 +13,7 @@ import {
   Check,
 } from 'lucide-react';
 import { Meal, Quote, QuoteMealItem } from '../types';
-import defaultLogoImg from '../assets/images/mafungwaswe_logo_1787055278742.jpg';
+import defaultLogoImg from '../assets/images/mafungwase_logo.jpg';
 import {
   formatCurrency,
   formatPercent,
@@ -432,17 +432,19 @@ Thank you for choosing our catering service!
           <div className="bg-white rounded-3xl max-w-2xl w-full p-8 shadow-2xl border border-stone-200 my-8">
             <div className="flex items-center justify-between pb-6 border-b border-stone-200">
               <div className="flex items-center gap-3">
-                <img
-                  src={logoUrl || defaultLogoImg}
-                  alt="MAFUNGWASE Logo"
-                  className="h-12 w-12 object-cover rounded-lg"
-                  onError={(e) => {
-                    const target = e.currentTarget as HTMLImageElement;
-                    if (target.src !== defaultLogoImg) {
-                      target.src = defaultLogoImg;
-                    }
-                  }}
-                />
+                <div className="w-12 h-12 shrink-0 rounded-lg overflow-hidden bg-[#06261A] p-0.5 border border-stone-200 shadow-xs">
+                  <img
+                    src={logoUrl || defaultLogoImg}
+                    alt="MAFUNGWASE Logo"
+                    className="w-full h-full object-cover rounded-md block"
+                    onError={(e) => {
+                      const target = e.currentTarget as HTMLImageElement;
+                      if (target.src !== defaultLogoImg) {
+                        target.src = defaultLogoImg;
+                      }
+                    }}
+                  />
+                </div>
                 <div>
                   <h3 className="font-extrabold text-stone-900 text-xl">Catering Price Quote</h3>
                   <p className="text-xs text-stone-500">Official Client Proposal</p>
