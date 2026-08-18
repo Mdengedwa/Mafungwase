@@ -373,15 +373,11 @@ export const CommunityRecipesScreen: React.FC<CommunityRecipesScreenProps> = ({
       {/* Hero Banner with CTA */}
       <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#0B3B28] via-[#0E4933] to-[#06261A] text-white px-6 py-5 sm:px-8 sm:py-6 shadow-xl border border-emerald-800">
         <div className="relative z-10 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
-          {/* Left / Heading Info */}
-          <div className="max-w-2xl space-y-1.5">
-            <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight leading-tight">
-              Our Community Recipes
+          {/* Centered Heading Info with Oswald Font */}
+          <div className="flex-1 text-center">
+            <h1 className="text-2xl sm:text-3xl lg:text-3xl font-medium text-white tracking-wide leading-snug font-['Oswald',sans-serif] text-center">
+              &ldquo;A place where first borns share delicious recipes and ideas.&rdquo;
             </h1>
-
-            <p className="text-xs sm:text-sm text-emerald-100/90 leading-relaxed font-medium">
-              A place where first borns share delicious recipes and profitable food business ideas.
-            </p>
           </div>
 
           {/* Top Right Action Buttons */}
