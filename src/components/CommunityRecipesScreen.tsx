@@ -376,7 +376,7 @@ export const CommunityRecipesScreen: React.FC<CommunityRecipesScreenProps> = ({
           {/* Centered Heading Info with Oswald Font */}
           <div className="flex-1 text-center">
             <h1 className="text-2xl sm:text-3xl lg:text-3xl font-medium text-white tracking-wide leading-snug font-['Oswald',sans-serif] text-center">
-              &ldquo;A place where first borns share delicious recipes and ideas.&rdquo;
+              &ldquo;Find and share (with other cooks) profitable meals to sell.&rdquo;
             </h1>
           </div>
 
