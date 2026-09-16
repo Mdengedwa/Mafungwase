@@ -391,11 +391,11 @@ export const CommunityRecipesScreen: React.FC<CommunityRecipesScreenProps> = ({
                 <span>Add And Cost Your Own Recipe</span>
               </button>
               <a
-                href="https://wa.me/0603628760"
+                href="https://wa.me/0603828760"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center justify-center p-2.5 sm:p-3 bg-[#25D366] hover:bg-[#1EBE5D] text-white rounded-2xl shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-0.5 cursor-pointer shrink-0"
-                title="Chat with us on WhatsApp (+27 60 362 8760)"
+                title="Chat with us on WhatsApp (+27 60 382 8760)"
                 aria-label="WhatsApp Contact"
               >
                 <MessageCircle className="w-5 h-5 sm:w-6 sm:h-6 stroke-[2.4]" />
