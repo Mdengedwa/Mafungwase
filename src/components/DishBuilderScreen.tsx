@@ -11,18 +11,26 @@ import {
   MessageSquare,
   ArrowLeft,
   BookOpen,
+  Users,
+  Calculator,
 } from 'lucide-react';
 import {
   ChefBookingInquiry,
 } from '../data/defaultPresetSuggestions';
 import { ManagerInquiryModal } from './ManagerInquiryModal';
 import { ManagerPasswordModal } from './ManagerPasswordModal';
+import { CalculatorPopulateData } from './QuickCalculatorModal';
 
 interface DishBuilderScreenProps {
   dishName: string;
   setDishName: (name: string) => void;
   accompanimentNames: string[];
   setAccompanimentNames: (names: string[]) => void;
+  guestHeadcount?: number;
+  onUpdateGuestHeadcount?: (count: number) => void;
+  calculatorPopulateInfo?: CalculatorPopulateData | null;
+  onClearCalculatorInfo?: () => void;
+  onOpenCalculator?: () => void;
   onContinueToAccompaniments: () => void;
   onBackToLibrary: () => void;
   logoUrl: string;
@@ -36,12 +44,26 @@ export const DishBuilderScreen: React.FC<DishBuilderScreenProps> = ({
   setDishName,
   accompanimentNames,
   setAccompanimentNames,
+  guestHeadcount = 50,
+  onUpdateGuestHeadcount,
+  calculatorPopulateInfo,
+  onClearCalculatorInfo,
+  onOpenCalculator,
   onContinueToAccompaniments,
   onBackToLibrary,
 }) => {
   const [newAccInput, setNewAccInput] = useState('');
   const [showAddInput, setShowAddInput] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // Auto-toast when auto-populated from calculator
+  useEffect(() => {
+    if (calculatorPopulateInfo) {
+      setToastMessage(
+        `✓ Auto-populated from Calculator: ${calculatorPopulateInfo.itemName || 'Platter'} (${calculatorPopulateInfo.guests} guests)`
+      );
+    }
+  }, [calculatorPopulateInfo]);
 
   // App Manager Mode State (persisted)
   const [isManagerMode, setIsManagerMode] = useState<boolean>(() => {
@@ -251,29 +273,103 @@ export const DishBuilderScreen: React.FC<DishBuilderScreenProps> = ({
           </div>
         )}
 
-        {/* Main Dish Name Input */}
-        <div className="space-y-2">
-          <label className="block text-xs font-black text-emerald-200 uppercase tracking-wider">
-            Main Dish / Event Menu Title
-          </label>
-          <div className="relative">
-            <input
-              type="text"
-              value={dishName}
-              onChange={(e) => setDishName(e.target.value)}
-              placeholder="e.g. Traditional Durban Curry Platter or Inyama Yenhloko Feast"
-              className="w-full text-base sm:text-lg font-black text-stone-950 bg-white border-2 border-emerald-950 rounded-2xl px-4 py-3.5 focus:border-amber-400 focus:ring-4 focus:ring-amber-400/20 focus:outline-none shadow-md transition-all placeholder:text-stone-400"
-            />
-            {dishName && (
-              <button
-                type="button"
-                onClick={() => setDishName('')}
-                className="absolute right-3.5 top-4 text-stone-400 hover:text-stone-900 cursor-pointer p-1"
-                title="Clear dish title"
-              >
-                <X className="w-4 h-4 stroke-[3]" />
-              </button>
-            )}
+        {/* Auto-Populated Buying Calculator Banner */}
+        {calculatorPopulateInfo && (
+          <div className="p-4 bg-amber-400 text-emerald-950 rounded-2xl border-2 border-emerald-950 shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs animate-in slide-in-from-top-2 duration-200">
+            <div className="flex items-start sm:items-center gap-3">
+              <div className="p-2.5 bg-emerald-950 text-amber-300 rounded-xl shrink-0 shadow-xs">
+                <Calculator className="w-5 h-5 stroke-[2.5]" />
+              </div>
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-black text-[10px] uppercase tracking-wider bg-emerald-950 text-amber-300 px-2 py-0.5 rounded-md">
+                    ⚡ Auto-Populated from Buying Calculator
+                  </span>
+                  <span className="text-[11px] font-mono font-black text-emerald-950">
+                    {calculatorPopulateInfo.formula}
+                  </span>
+                </div>
+                <p className="text-xs font-bold text-emerald-950/90 leading-tight">
+                  {calculatorPopulateInfo.itemName ? (
+                    <span>
+                      Item: <strong>{calculatorPopulateInfo.itemName}</strong> •{' '}
+                    </span>
+                  ) : null}
+                  Event Headcount: <strong>{calculatorPopulateInfo.guests} Guests</strong> •{' '}
+                  Target Portion: <strong>{calculatorPopulateInfo.displayPortion}</strong> •{' '}
+                  Bulk Purchase: <strong>{calculatorPopulateInfo.displayBulk}</strong>
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
+              {onOpenCalculator && (
+                <button
+                  type="button"
+                  onClick={onOpenCalculator}
+                  className="px-3 py-1.5 text-[11px] font-black text-emerald-950 bg-amber-300 hover:bg-amber-200 rounded-xl border border-emerald-900 transition-colors cursor-pointer"
+                >
+                  Adjust Calculator
+                </button>
+              )}
+              {onClearCalculatorInfo && (
+                <button
+                  type="button"
+                  onClick={onClearCalculatorInfo}
+                  className="p-1.5 text-emerald-950 hover:bg-amber-300/80 rounded-xl transition-colors cursor-pointer"
+                  title="Dismiss banner"
+                >
+                  <X className="w-4 h-4 stroke-[3]" />
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Main Dish Name & Planned Headcount */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="md:col-span-2 space-y-2">
+            <label className="block text-xs font-black text-emerald-200 uppercase tracking-wider">
+              Main Dish / Event Menu Title
+            </label>
+            <div className="relative">
+              <input
+                type="text"
+                value={dishName}
+                onChange={(e) => setDishName(e.target.value)}
+                placeholder="e.g. Traditional Durban Curry Platter or Inyama Yenhloko Feast"
+                className="w-full text-base sm:text-lg font-black text-stone-950 bg-white border-2 border-emerald-950 rounded-2xl px-4 py-3.5 focus:border-amber-400 focus:ring-4 focus:ring-amber-400/20 focus:outline-none shadow-md transition-all placeholder:text-stone-400"
+              />
+              {dishName && (
+                <button
+                  type="button"
+                  onClick={() => setDishName('')}
+                  className="absolute right-3.5 top-4 text-stone-400 hover:text-stone-900 cursor-pointer p-1"
+                  title="Clear dish title"
+                >
+                  <X className="w-4 h-4 stroke-[3]" />
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <label className="block text-xs font-black text-emerald-200 uppercase tracking-wider">
+              Planned Guest Headcount
+            </label>
+            <div className="relative">
+              <input
+                type="number"
+                min="1"
+                step="1"
+                value={guestHeadcount}
+                onChange={(e) =>
+                  onUpdateGuestHeadcount?.(Math.max(1, parseInt(e.target.value) || 1))
+                }
+                placeholder="e.g. 50"
+                className="w-full text-base sm:text-lg font-black text-stone-950 bg-white border-2 border-emerald-950 rounded-2xl pl-11 pr-4 py-3.5 focus:border-amber-400 focus:ring-4 focus:ring-amber-400/20 focus:outline-none shadow-md transition-all"
+              />
+              <Users className="w-5 h-5 text-stone-400 absolute left-3.5 top-4" />
+            </div>
           </div>
         </div>
 

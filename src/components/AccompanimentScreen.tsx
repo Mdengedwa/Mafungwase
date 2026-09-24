@@ -41,6 +41,11 @@ import { PreparingInstructionsSection } from './PreparingInstructionsSection';
 import { RetailPackUnitsModal } from './RetailPackUnitsModal';
 import { RetailPackGuideItem } from '../data/retailPackUnits';
 import { INITIAL_ORDER_LIST } from '../data/initialOrderList';
+import {
+  populateAccompanimentIngredients,
+  isOldBogusFallback,
+  TRADITIONAL_RECIPE_EXPANSIONS,
+} from '../utils/accompanimentPopulation';
 import platedMealPieChartImg from '../assets/images/plated_meal_pie_chart_1786617201280.jpg';
 
 const MANAGER_MODE_STORAGE_KEY = 'food_costing_manager_mode';
@@ -218,6 +223,48 @@ export const AccompanimentScreen: React.FC<AccompanimentScreenProps> = ({
       )
     );
   };
+
+  // Check if active accompaniment matches any known traditional scratch recipe
+  const hasTraditionalScratchRecipe = useMemo(() => {
+    if (!activeAcc) return false;
+    const lower = activeAcc.name.toLowerCase();
+    return Object.keys(TRADITIONAL_RECIPE_EXPANSIONS).some((k) => lower.includes(k));
+  }, [activeAcc?.name]);
+
+  // Handler to auto-populate active accompaniment from the Order List database
+  const handleAutoPopulateActiveAcc = (preferRecipeExpansion: boolean = false) => {
+    if (!activeAcc) return;
+    const populated = populateAccompanimentIngredients(activeAcc.name, effectiveOrderList, {
+      portionGrams: activeAcc.portionSizeGrams || 150,
+      preferRecipeExpansion,
+    });
+    updateActiveAcc({
+      ...activeAcc,
+      ingredients: populated,
+    });
+    const customCount = populated.filter((i) => i.isManual).length;
+    const linkedCount = populated.filter((i) => !i.isManual).length;
+    if (customCount > 0 && linkedCount > 0) {
+      showToast(`✓ Populated: ${linkedCount} linked from Order List, ${customCount} custom entry created`);
+    } else if (customCount > 0) {
+      showToast(`✨ Created custom entry for "${activeAcc.name}" (not found in Order List)`);
+    } else {
+      showToast(`✓ Populated ${linkedCount} ingredient(s) from Order List for "${activeAcc.name}"`);
+    }
+  };
+
+  // Automatically populate active accompaniment if it has no ingredients or has the old bogus single fallback
+  useEffect(() => {
+    if (activeAcc && (activeAcc.ingredients.length === 0 || isOldBogusFallback(activeAcc))) {
+      const populated = populateAccompanimentIngredients(activeAcc.name, effectiveOrderList, {
+        portionGrams: activeAcc.portionSizeGrams || 150,
+      });
+      updateActiveAcc({
+        ...activeAcc,
+        ingredients: populated,
+      });
+    }
+  }, [activeAccIndex, activeAcc?.name, effectiveOrderList]);
 
   // Add ingredient row (from Order List item OR manual)
   const handleAddIngredient = (orderItemId?: string) => {
@@ -719,6 +766,29 @@ export const AccompanimentScreen: React.FC<AccompanimentScreenProps> = ({
 
             {/* Add Ingredient Button & Quick Units */}
             <div className="flex items-center flex-wrap gap-2">
+              {/* Auto-Populate from Order List Button */}
+              <button
+                type="button"
+                onClick={() => handleAutoPopulateActiveAcc(false)}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-black text-emerald-950 bg-emerald-200/90 hover:bg-emerald-300 border-2 border-emerald-600 rounded-xl transition-all shadow-2xs cursor-pointer active:scale-95"
+                title="Automatically populate ingredients by looking up items in the Order List database. Missing items are created as custom entries."
+              >
+                <Sparkles className="w-4 h-4 text-emerald-800" />
+                <span>Auto-Populate from Order List</span>
+              </button>
+
+              {/* Optional: Scratch Recipe Expansion if traditional dish */}
+              {hasTraditionalScratchRecipe && (
+                <button
+                  type="button"
+                  onClick={() => handleAutoPopulateActiveAcc(true)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-amber-950 bg-amber-100 hover:bg-amber-200 border border-amber-400 rounded-xl transition-all shadow-2xs cursor-pointer active:scale-95"
+                  title="Expand into traditional scratch recipe ingredients (e.g. Flour, Yeast, Sugar, Salt) and look them up in the Order List"
+                >
+                  <span>🧁 Expand Scratch Recipe</span>
+                </button>
+              )}
+
               {/* Quick Search Ingredients Button */}
               <button
                 type="button"
@@ -727,11 +797,11 @@ export const AccompanimentScreen: React.FC<AccompanimentScreenProps> = ({
                   setSearchCategory('all');
                   setIsSearchModalOpen(true);
                 }}
-                className="inline-flex items-center gap-2 px-4 py-2 text-xs font-black text-emerald-950 bg-emerald-100/90 hover:bg-emerald-200 border-2 border-emerald-500 rounded-xl transition-all shadow-2xs cursor-pointer active:scale-95"
+                className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-black text-emerald-950 bg-emerald-100/90 hover:bg-emerald-200 border border-emerald-400 rounded-xl transition-all shadow-2xs cursor-pointer active:scale-95"
                 title="Search and select ingredients directly from the Order List database"
               >
                 <Search className="w-4 h-4 text-emerald-800" />
-                <span>Search Ingredients</span>
+                <span>Search</span>
               </button>
 
               {isManagerMode && (
@@ -756,6 +826,18 @@ export const AccompanimentScreen: React.FC<AccompanimentScreenProps> = ({
               </button>
             </div>
           </div>
+
+          {/* Custom Entry Status Notice */}
+          {activeAcc.ingredients.some((i) => i.isManual) && (
+            <div className="mb-3 p-3 bg-amber-50/90 border border-amber-300 rounded-xl flex items-center justify-between text-xs text-amber-950">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-amber-700 shrink-0" />
+                <span>
+                  <strong>Custom Entry:</strong> One or more ingredients were not found in the Order List database and were created as custom entries. You can enter your custom purchase cost per kg / unit directly in the table below.
+                </span>
+              </div>
+            </div>
+          )}
 
           {/* Ingredients List */}
           <div className="overflow-x-auto border border-emerald-100 rounded-2xl shadow-2xs">
@@ -829,11 +911,14 @@ export const AccompanimentScreen: React.FC<AccompanimentScreenProps> = ({
                                   handleIngredientChange(ing.id, 'name', e.target.value)
                                 }
                                 placeholder="Ingredient name (e.g. Canola Oil, Large Eggs)..."
-                                className="w-full text-xs px-2 py-1 border border-emerald-300 bg-emerald-50/60 rounded-md font-semibold text-stone-900"
+                                className="w-full text-xs px-2.5 py-1.5 border-2 border-amber-300 bg-amber-50/70 rounded-md font-semibold text-stone-900 focus:outline-none focus:border-amber-600"
                               />
-                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-900 shrink-0 border border-emerald-200">
-                                <AlertCircle className="w-3 h-3 text-emerald-700" />
-                                100% EY
+                              <span
+                                className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-black bg-amber-100 text-amber-900 shrink-0 border border-amber-300"
+                                title="Custom Entry: Not found in the Order List database. Enter your cost per kg/unit in the price column."
+                              >
+                                <Sparkles className="w-3 h-3 text-amber-700" />
+                                Custom Entry
                               </span>
                             </div>
                           ) : (

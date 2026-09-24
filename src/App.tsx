@@ -7,7 +7,7 @@ import { QuoteScreen } from './components/QuoteScreen';
 import { OrderListScreen } from './components/OrderListScreen';
 import { CommunityRecipesScreen } from './components/CommunityRecipesScreen';
 import { LogoUploadModal } from './components/LogoUploadModal';
-import { QuickCalculatorModal } from './components/QuickCalculatorModal';
+import { QuickCalculatorModal, CalculatorPopulateData } from './components/QuickCalculatorModal';
 
 import { OrderItem, Accompaniment, Meal, Quote, StoreSpecial, RecipeBasketItem } from './types';
 import { INITIAL_ORDER_LIST } from './data/initialOrderList';
@@ -33,6 +33,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<ActiveTab>('communityRecipes');
   const [isLogoModalOpen, setIsLogoModalOpen] = useState(false);
   const [isQuickCalcOpen, setIsQuickCalcOpen] = useState(false);
+  const [calculatorPopulateInfo, setCalculatorPopulateInfo] = useState<CalculatorPopulateData | null>(null);
 
   // Unlocked navigation tabs - Our Community Recipes, dishBuilder (Step 1), and orderList are always accessible
   const [unlockedTabs, setUnlockedTabs] = useState<ActiveTab[]>([
@@ -274,8 +275,90 @@ export default function App() {
     localStorage.setItem('food_costing_app_logo', logoUrl);
   }, [logoUrl]);
 
+  // Handler to auto populate the Dish Builder page from the Buying Calculator
+  const handlePopulateFromCalculator = (data: CalculatorPopulateData) => {
+    setCalculatorPopulateInfo(data);
+
+    // 1. Determine Dish Name
+    let newDishName = '';
+    const cleanItem = data.itemName.trim();
+    if (cleanItem) {
+      const titleCase = cleanItem.charAt(0).toUpperCase() + cleanItem.slice(1);
+      newDishName = /platter|feast|meal|dish|curry|stew|buffet|braai|roast|lunch|dinner|portion/i.test(titleCase)
+        ? titleCase
+        : `${titleCase} Platter`;
+    } else {
+      newDishName = `Calculated Catering Menu (${data.guests} Guests)`;
+    }
+    setDishName(newDishName);
+
+    // 2. Determine Accompaniments
+    if (cleanItem) {
+      const titleItem = cleanItem.charAt(0).toUpperCase() + cleanItem.slice(1);
+      const lower = titleItem.toLowerCase();
+      let complementarySides: string[] = [];
+      if (
+        lower.includes('rice') ||
+        lower.includes('pap') ||
+        lower.includes('dombolo') ||
+        lower.includes('bread') ||
+        lower.includes('samp')
+      ) {
+        complementarySides = ['Hearty Beef Stew', 'Spicy Chakalaka', 'Tomato & Onion Gravy'];
+      } else if (
+        lower.includes('chicken') ||
+        lower.includes('beef') ||
+        lower.includes('mutton') ||
+        lower.includes('meat') ||
+        lower.includes('fish') ||
+        lower.includes('lamb') ||
+        lower.includes('pork') ||
+        lower.includes('steak') ||
+        lower.includes('wors')
+      ) {
+        complementarySides = ['Steamed Basmati Rice', 'Spicy Chakalaka', 'Fresh Garden Salad'];
+      } else if (
+        lower.includes('salad') ||
+        lower.includes('sambal') ||
+        lower.includes('chakalaka') ||
+        lower.includes('sauce') ||
+        lower.includes('gravy')
+      ) {
+        complementarySides = ['Grilled Chicken Tikka', 'Steamed Savory Rice', 'Garlic Naan Bread'];
+      } else {
+        complementarySides = ['Steamed Basmati Rice', 'Spicy Chakalaka', 'Fresh Garden Salad'];
+      }
+      setAccompanimentNames([
+        titleItem,
+        ...complementarySides.filter((s) => s.toLowerCase() !== lower),
+      ]);
+    } else {
+      setAccompanimentNames([
+        'Grilled Chicken Tikka',
+        'Steamed Basmati Rice',
+        'Butter Bean Curry',
+        'Spicy Chakalaka',
+      ]);
+    }
+
+    // 3. Update Headcount in Quote
+    const validGuests = Math.max(1, data.guests);
+    setQuote((prev) =>
+      recalculateQuote({ ...prev, defaultHeadcount: validGuests }, [currentMeal])
+    );
+
+    // 4. Ensure dishBuilder tab is unlocked & navigate to it
+    setUnlockedTabs((prev) => Array.from(new Set([...prev, 'dishBuilder'])));
+    setActiveTab('dishBuilder');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   // Build Accompaniments from accompanimentNames when navigating to Step 2
   const handleBuildAccompaniments = (shouldNavigate: boolean = true) => {
+    const calcItemLower = calculatorPopulateInfo?.itemName?.trim().toLowerCase();
+    const currentHeadcount =
+      quote.defaultHeadcount > 0 ? quote.defaultHeadcount : (calculatorPopulateInfo?.guests || 50);
+
     const newAccs: Accompaniment[] = accompanimentNames.map((name, index) => {
       // Find existing accompaniment if name matches
       const existing = accompaniments.find(
@@ -287,7 +370,40 @@ export default function App() {
       let initialIngredients = [];
       const lower = name.toLowerCase();
 
-      if (lower.includes('rice')) {
+      // Check if this accompaniment is the calculated item
+      const isCalculatedItem =
+        !!calcItemLower &&
+        (lower === calcItemLower || lower.includes(calcItemLower) || calcItemLower.includes(lower));
+
+      const portionSize =
+        isCalculatedItem && calculatorPopulateInfo && calculatorPopulateInfo.portionResultGrams > 0
+          ? Math.round(calculatorPopulateInfo.portionResultGrams)
+          : 150;
+
+      const batchQuantity =
+        isCalculatedItem && calculatorPopulateInfo && calculatorPopulateInfo.bulkResultKg > 0
+          ? Math.round(calculatorPopulateInfo.bulkResultKg * 1000)
+          : 1000;
+
+      // Smart ingredient matching based on name keywords
+      const matchedOrderItem = orderList.find(
+        (i) =>
+          i.itemDescription.toLowerCase() === lower ||
+          i.itemDescription.toLowerCase().includes(lower) ||
+          lower.split(' ').some((w) => w.length > 3 && i.itemDescription.toLowerCase().includes(w))
+      );
+
+      if (matchedOrderItem) {
+        initialIngredients.push(
+          calculateIngredientRow({
+            orderItemId: matchedOrderItem.id,
+            name: matchedOrderItem.itemDescription,
+            quantityUsed: portionSize,
+            eyPercent: matchedOrderItem.estYieldPercent,
+            costPerUnit: matchedOrderItem.pricePerUnit,
+          })
+        );
+      } else if (lower.includes('rice')) {
         const riceItem = orderList.find((i) => i.itemDescription.includes('Rice'));
         if (riceItem) {
           initialIngredients.push(
@@ -391,12 +507,12 @@ export default function App() {
       const acc: Accompaniment = {
         id: `acc-${Date.now()}-${index}`,
         name,
-        batchQuantity: 1000, // 1kg batch
+        batchQuantity: batchQuantity || 1000,
         ingredients: initialIngredients,
         qFactorPercent: 0.10, // 10% spoilage factor
         totalIngredientCost: 0,
         recipeCost: 0,
-        portionSizeGrams: 150, // standard portion
+        portionSizeGrams: portionSize || 150,
         numberOfPortions: 1,
         portionCost: 0,
         desiredCostPercent: 0.40,
@@ -453,9 +569,9 @@ export default function App() {
     // Initialize Quote
     const newQuote: Quote = {
       id: `quote-${Date.now()}`,
-      clientEventName: 'Smith Wedding Reception',
-      defaultHeadcount: 50,
-      meals: [{ mealId: recalculatedMeal.id, subtotal: recalculatedMeal.totalPlateCost * 50 }],
+      clientEventName: quote.clientEventName || 'Smith Wedding Reception',
+      defaultHeadcount: currentHeadcount,
+      meals: [{ mealId: recalculatedMeal.id, subtotal: recalculatedMeal.totalPlateCost * currentHeadcount }],
       eventFoodCost: 0,
       markupPercent: 0.30,
       totalQuotedPrice: 0,
@@ -528,6 +644,15 @@ export default function App() {
             setDishName={setDishName}
             accompanimentNames={accompanimentNames}
             setAccompanimentNames={setAccompanimentNames}
+            guestHeadcount={quote.defaultHeadcount}
+            onUpdateGuestHeadcount={(count) => {
+              setQuote((prev) =>
+                recalculateQuote({ ...prev, defaultHeadcount: count }, [currentMeal])
+              );
+            }}
+            calculatorPopulateInfo={calculatorPopulateInfo}
+            onClearCalculatorInfo={() => setCalculatorPopulateInfo(null)}
+            onOpenCalculator={() => setIsQuickCalcOpen(true)}
             onContinueToAccompaniments={() => handleBuildAccompaniments(true)}
             onBackToLibrary={() => {
               setActiveTab('communityRecipes');
@@ -641,7 +766,7 @@ export default function App() {
       <QuickCalculatorModal
         isOpen={isQuickCalcOpen}
         onClose={() => setIsQuickCalcOpen(false)}
-        onNavigateToDishSetup={() => setActiveTab('dishBuilder')}
+        onNavigateToDishSetup={handlePopulateFromCalculator}
       />
 
       {/* Global Recipe Basket Modal (Accessible from Header on any tab) */}

@@ -1,10 +1,25 @@
 import React, { useState } from 'react';
 import { Calculator, X, AlertTriangle, Users, Scale, ArrowRight, ArrowRightLeft, Sparkles, Utensils } from 'lucide-react';
 
+export interface CalculatorPopulateData {
+  itemName: string;
+  calcMode: 'bulkToPortion' | 'portionToBulk';
+  bulkQty: number;
+  unit: Unit;
+  guests: number;
+  targetPortion: number;
+  portionUnit: Unit;
+  portionResultGrams: number;
+  bulkResultKg: number;
+  displayPortion: string;
+  displayBulk: string;
+  formula: string;
+}
+
 interface QuickCalculatorModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onNavigateToDishSetup?: () => void;
+  onNavigateToDishSetup?: (data: CalculatorPopulateData) => void;
 }
 
 type Unit = 'kg' | 'g' | 'L' | 'ml' | 'units';
@@ -346,13 +361,81 @@ export const QuickCalculatorModal: React.FC<QuickCalculatorModalProps> = ({
           {onNavigateToDishSetup ? (
             <button
               onClick={() => {
+                let portionResultGrams = 0;
+                let bulkResultKg = 0;
+
+                if (calcMode === 'bulkToPortion') {
+                  const raw = numGuests > 0 ? numBulk / numGuests : 0;
+                  if (unit === 'kg') {
+                    portionResultGrams = raw * 1000;
+                    bulkResultKg = numBulk;
+                  } else if (unit === 'g') {
+                    portionResultGrams = raw;
+                    bulkResultKg = numBulk / 1000;
+                  } else if (unit === 'L') {
+                    portionResultGrams = raw * 1000;
+                    bulkResultKg = numBulk;
+                  } else if (unit === 'ml') {
+                    portionResultGrams = raw;
+                    bulkResultKg = numBulk / 1000;
+                  } else {
+                    portionResultGrams = raw;
+                    bulkResultKg = numBulk;
+                  }
+                } else {
+                  const totalRaw = numTargetPortion * numGuests;
+                  if (portionUnit === 'g') {
+                    portionResultGrams = numTargetPortion;
+                    bulkResultKg = totalRaw / 1000;
+                  } else if (portionUnit === 'kg') {
+                    portionResultGrams = numTargetPortion * 1000;
+                    bulkResultKg = totalRaw;
+                  } else if (portionUnit === 'ml') {
+                    portionResultGrams = numTargetPortion;
+                    bulkResultKg = totalRaw / 1000;
+                  } else if (portionUnit === 'L') {
+                    portionResultGrams = numTargetPortion * 1000;
+                    bulkResultKg = totalRaw;
+                  } else {
+                    portionResultGrams = numTargetPortion;
+                    bulkResultKg = Math.ceil(totalRaw);
+                  }
+                }
+
+                const formula =
+                  calcMode === 'bulkToPortion'
+                    ? `${bulkQty} ${unit} ÷ ${numGuests} guests = ${portionResult.main} / guest`
+                    : `${targetPortion} ${portionUnit} × ${numGuests} guests = ${bulkResult.main}`;
+
+                const data: CalculatorPopulateData = {
+                  itemName: itemName.trim(),
+                  calcMode,
+                  bulkQty: numBulk,
+                  unit,
+                  guests: numGuests,
+                  targetPortion: numTargetPortion,
+                  portionUnit,
+                  portionResultGrams: Math.round(portionResultGrams * 10) / 10,
+                  bulkResultKg: Math.round(bulkResultKg * 100) / 100,
+                  displayPortion:
+                    calcMode === 'bulkToPortion'
+                      ? portionResult.main
+                      : `${targetPortion} ${portionUnit}`,
+                  displayBulk:
+                    calcMode === 'bulkToPortion'
+                      ? `${bulkQty} ${unit}`
+                      : bulkResult.main,
+                  formula,
+                };
+
                 onClose();
-                onNavigateToDishSetup();
+                onNavigateToDishSetup(data);
               }}
-              className="w-full sm:w-auto flex items-center justify-center gap-1.5 text-xs font-extrabold text-emerald-800 hover:text-emerald-950 bg-emerald-100/70 hover:bg-emerald-200 px-3.5 py-2 rounded-xl border border-emerald-300 transition-all cursor-pointer"
+              className="w-full sm:w-auto flex items-center justify-center gap-2 text-xs font-black text-emerald-950 bg-amber-400 hover:bg-amber-300 px-4 py-2.5 rounded-xl border-2 border-emerald-950 shadow-md transition-all cursor-pointer transform active:scale-95"
             >
-              <Utensils className="w-3.5 h-3.5" />
+              <Utensils className="w-4 h-4 text-emerald-950 stroke-[2.5]" />
               <span>Go to Dish Setup</span>
+              <ArrowRight className="w-3.5 h-3.5 stroke-[2.5]" />
             </button>
           ) : (
             <div />
@@ -360,7 +443,7 @@ export const QuickCalculatorModal: React.FC<QuickCalculatorModalProps> = ({
 
           <button
             onClick={onClose}
-            className="w-full sm:w-auto px-5 py-2 rounded-xl bg-stone-900 hover:bg-black text-white text-xs font-extrabold shadow-xs transition-all"
+            className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-stone-900 hover:bg-black text-white text-xs font-extrabold shadow-xs transition-all cursor-pointer"
           >
             Close Calculator
           </button>
